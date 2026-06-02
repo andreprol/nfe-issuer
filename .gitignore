@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Sensitive business data
+data/
+config.json
+logs/
+
+# Certificates
+*.pfx
+*.p12
+
+# Environment
+.env
+.env.*
+
+# Claude Code
+.claude/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Temporary / utility files
+migrar-dados.html
+preview-logos.html
+enviar-teste.html
+importar-clientes.js
+importar-produtos-rj.js
+iniciar-emissor-silencioso.vbs
+Ativar-Autostart-Emissor.bat
+Desativar-Autostart-Emissor.bat
+iniciar-servidor-email.bat
+iniciar-servidor-focus.bat
+iniciar-servidor-sefaz.bat

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 56" width="230" height="56">
+  <defs>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="135%" y2="135%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Badge -->
+  <rect x="0" y="4" width="46" height="46" rx="11" fill="url(#g2)"/>
+  <line x1="0" y1="38" x2="15" y2="50" stroke="rgba(255,255,255,0.07)" stroke-width="14"/>
+
+  <!-- Monograma RJ -->
+  <text x="23" y="35"
+    font-family="'Segoe UI', 'Arial Black', Arial, sans-serif"
+    font-size="20" font-weight="900"
+    fill="white" text-anchor="middle" letter-spacing="-0.8">RJ</text>
+
+  <!-- Separador -->
+  <line x1="57" y1="10" x2="57" y2="46" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>
+
+  <!-- Nome: Tecnologia -->
+  <text x="68" y="28"
+    font-family="'Segoe UI', Arial, sans-serif"
+    font-size="17" font-weight="800"
+    fill="#ffffff" letter-spacing="-0.2">Tecnologia</text>
+
+  <!-- Subtítulo -->
+  <text x="69" y="43"
+    font-family="'Segoe UI', Arial, sans-serif"
+    font-size="8.5" font-weight="400"
+    fill="rgba(255,255,255,0.38)" letter-spacing="2.2">LOGÍSTICA &amp; SOLUÇÕES</text>
+
+  <!-- Ponto azul claro -->
+  <circle cx="62" cy="40" r="2" fill="#60a5fa"/>
+</svg>

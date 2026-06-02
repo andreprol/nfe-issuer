@@ -1,0 +1,16 @@
+{
+  "name": "emissor-de-notas",
+  "version": "1.0.0",
+  "description": "",
+  "main": "importar-clientes.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "node-forge": "^1.4.0"
+  }
+}
