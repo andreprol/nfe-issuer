@@ -145,6 +145,188 @@ async function aguardarAutorizacaoFocus(host, ref, token, tentativas = 20) {
   return { status: 408, body: { status: 'timeout', mensagem: 'Tempo esgotado aguardando SEFAZ.' } };
 }
 
+// ── NFS-e ─────────────────────────────────────────────────────────────────────
+const STATUS_PENDENTES_NFSE = ['processando', 'recebido', 'em_processamento', 'processando_autorizacao'];
+
+function montarPayloadNfse(dados, config) {
+  const { tomador, servico, naturezaOp, regimeEspecial, infAdicional } = dados;
+  const cnpjLimpo  = (config.cnpj || '').replace(/\D/g, '');
+  const inscMun    = (config.inscricaoMunicipal || '16269891').replace(/\D/g, '');
+  const _now = new Date();
+  const _br  = new Date(_now.getTime() - 3 * 3600000);
+  const _pad = n => String(n).padStart(2, '0');
+  const agora = `${_br.getUTCFullYear()}-${_pad(_br.getUTCMonth()+1)}-${_pad(_br.getUTCDate())}T${_pad(_br.getUTCHours())}:${_pad(_br.getUTCMinutes())}:${_pad(_br.getUTCSeconds())}-03:00`;
+  const ref   = `nfsen-${cnpjLimpo}-${Date.now()}`;
+
+  const tomDoc = (tomador.doc || '').replace(/\D/g, '');
+
+  const valorServico = parseFloat(servico.valor || 0);
+
+  // Mapeamento CNAE → [cTribNac 6 dígitos LC116, NBS 9 dígitos AnexoVIII]
+  // Fonte: nfsenacional.prefeitura.rio/codtribriov2-0/ + gov.br AnexoVIII (jun/2026)
+  const CNAE_CTN = {
+    '5320202': ['150603', '107020000'], // Coleta e entrega de documentos, bens e valores
+    '5320201': ['260101', '105011500'], // Coleta/remessa de correspondências (malote)
+    '4930202': ['160201', '105011110'], // Transporte rodoviário municipal de carga
+    '9511800': ['140101', '120012000'], // Manutenção e reparação de computadores
+  };
+  const cnaeLimpo = (servico.cnae || '5320202').replace(/\D/g, '');
+  const [cTribNac, codigoNbs] = CNAE_CTN[cnaeLimpo] || ['150603', '107020000'];
+
+  // NFSe Nacional (/v2/nfsen) — payload baseado no exemplo oficial Focus NFe
+  const payload = {
+    data_emissao:                  agora,
+    data_competencia:              agora.slice(0, 10),
+    codigo_municipio_emissora:     3304557,
+
+    // Prestador (inscrição municipal não deve ser enviada no Ambiente Nacional para RJ)
+    cnpj_prestador: cnpjLimpo,
+    codigo_opcao_simples_nacional: 1,
+    regime_especial_tributacao:    parseInt(regimeEspecial || '0'),
+
+    // Serviço
+    codigo_municipio_prestacao:     3304557,
+    codigo_tributacao_nacional_iss: cTribNac,
+    codigo_nbs:                     codigoNbs,
+    codigo_cnae:                    cnaeLimpo,
+    descricao_servico:             servico.discriminacao || '',
+    valor_servico:                 valorServico,
+
+    // Tributação ISS
+    tributacao_iss:    1,
+    tipo_retencao_iss: parseInt(servico.issRetido || '2'),
+  };
+
+  // Tomador — doc obrigatório
+  if (tomDoc.length === 14)      payload.cnpj_tomador = tomDoc;
+  else if (tomDoc.length === 11) payload.cpf_tomador  = tomDoc;
+  payload.razao_social_tomador = tomador.nome  || 'CONSUMIDOR NAO IDENTIFICADO';
+  if (tomador.email) payload.email_tomador = tomador.email;
+
+  // Endereço do tomador — só inclui se CEP preenchido
+  const cepLimpo = (tomador.cep || '').replace(/\D/g, '');
+  if (cepLimpo) {
+    payload.cep_tomador              = cepLimpo;
+    payload.logradouro_tomador       = tomador.logradouro  || '';
+    payload.numero_tomador           = tomador.numero      || 'S/N';
+    payload.bairro_tomador           = tomador.bairro      || '';
+    payload.codigo_municipio_tomador = parseInt(tomador.codigoMun || '3304557');
+  }
+
+  if (infAdicional) payload.informacoes_adicionais = infAdicional;
+
+  return { payload, ref };
+}
+
+async function aguardarAutorizacaoNfse(host, ref, token, tentativas = 40) {
+  for (let i = 0; i < tentativas; i++) {
+    await new Promise(r => setTimeout(r, 30000));
+    // Rio de Janeiro usa NFSe Nacional → endpoint /v2/nfsen
+    const { status, body } = await focusRequest({ host, path: `/v2/nfsen/${ref}`, method: 'GET', token, body: null });
+    console.log(`[NFS-e poll ${i+1}/${tentativas}] status HTTP: ${status}, status nota: ${body?.status}`);
+    if (status === 200 && !STATUS_PENDENTES_NFSE.includes(body.status)) return { status, body };
+    if (status === 404) return { status, body };
+  }
+  return { status: 408, body: { status: 'timeout', mensagem: 'Tempo esgotado aguardando prefeitura.' } };
+}
+
+async function handleFocusNfseEmitir(req, res) {
+  try {
+    const body = await lerCorpo(req);
+    const { token, dados, config } = body;
+    if (!token) { res.writeHead(400, {'Content-Type':'application/json'}); res.end(JSON.stringify({ ok:false, erro:'Token Focus NFe não informado.' })); return; }
+
+    const amb  = (config.ambiente || '').includes('Produção') ? 'producao' : 'homologacao';
+    const host = amb === 'producao' ? FOCUS_PROD : FOCUS_HOM;
+
+    // Lê CNPJ e inscrição municipal direto do config salvo no servidor
+    let configEmpresa = {};
+    try { configEmpresa = JSON.parse(dbRead('techstore-config') || '{}'); } catch(_) {}
+    const configCompleto = {
+      ...config,
+      cnpj:               (configEmpresa['cfg-cnpj']          || config.cnpj || '').replace(/\D/g,''),
+      inscricaoMunicipal: (configEmpresa['cfg-im']             || config.inscricaoMunicipal || '16269891').replace(/\D/g,''),
+      razaoSocial:         configEmpresa['cfg-razao-social']   || config.razaoSocial || 'RIO DE JANEIRO LOGISTICA E TECNOLOGIA LTDA',
+      cep:                (configEmpresa['cfg-cep']            || '23042530').replace(/\D/g,''),
+      logradouro:          configEmpresa['cfg-logradouro']     || 'Rua Manuel Beckmann',
+      numero:              configEmpresa['cfg-numero']         || '834',
+      complemento:         configEmpresa['cfg-complemento']   || '',
+      bairro:              configEmpresa['cfg-bairro']         || 'Campo Grande',
+    };
+
+    const { payload, ref } = montarPayloadNfse(dados, configCompleto);
+
+    console.log('[NFS-e payload] cnpj:', payload.cnpj_prestador, 'inscMun:', payload.inscricao_municipal_prestador);
+    // Rio de Janeiro usa NFSe Nacional → endpoint /v2/nfsen
+    const envio = await focusRequest({ host, path: `/v2/nfsen?ref=${ref}`, method: 'POST', token, body: payload });
+    console.log('[NFS-e envio] status:', envio.status, 'body:', JSON.stringify(envio.body).slice(0, 300));
+
+    if (![200, 201, 202].includes(envio.status)) {
+      let erros = '—';
+      try {
+        erros = (envio.body?.erros || []).map(e => e.mensagem).join('; ') || String(envio.body);
+      } catch(_) { erros = String(envio.body); }
+      res.writeHead(502, {'Content-Type':'application/json'});
+      res.end(JSON.stringify({ ok:false, erro:`Focus NFe rejeitou (${envio.status}): ${erros}`, detalhe: String(envio.body) }));
+      return;
+    }
+
+    // Retorna imediatamente com status "aguardando" — prefeitura processa de forma assíncrona
+    res.writeHead(200, {'Content-Type':'application/json'});
+    res.end(JSON.stringify({ ok: true, status: 'aguardando', ref, ambiente: amb }));
+  } catch (err) {
+    console.error('[NFS-e erro]', err.message);
+    res.writeHead(500, {'Content-Type':'application/json'});
+    res.end(JSON.stringify({ ok:false, erro: err.message }));
+  }
+}
+
+async function handleFocusNfseCancelar(req, res) {
+  try {
+    const body = await lerCorpo(req);
+    const { token, ref, justificativa, config } = body;
+    if (!token) { res.writeHead(400, {'Content-Type':'application/json'}); res.end(JSON.stringify({ ok:false, erro:'Token não informado.' })); return; }
+    if (!ref)   { res.writeHead(400, {'Content-Type':'application/json'}); res.end(JSON.stringify({ ok:false, erro:'Referência (ref) não informada.' })); return; }
+
+    const amb  = (config?.ambiente || '').includes('Produção') ? 'producao' : 'homologacao';
+    const host = amb === 'producao' ? FOCUS_PROD : FOCUS_HOM;
+
+    const result = await focusRequest({
+      host,
+      path: `/v2/nfsen/${ref}`,
+      method: 'DELETE',
+      token,
+      body: { justificativa: justificativa || 'Cancelamento solicitado pelo emitente.' },
+    });
+
+    if ([200, 201, 202].includes(result.status)) {
+      res.writeHead(200, {'Content-Type':'application/json'});
+      res.end(JSON.stringify({ ok: true, status: result.body?.status, msg: 'Cancelamento solicitado com sucesso.', detalhe: result.body }));
+    } else {
+      const erros = result.body?.erros?.map(e => e.mensagem).join('; ') || JSON.stringify(result.body);
+      res.writeHead(502, {'Content-Type':'application/json'});
+      res.end(JSON.stringify({ ok: false, erro: `Focus NFe: ${erros}`, detalhe: result.body }));
+    }
+  } catch (err) {
+    res.writeHead(500, {'Content-Type':'application/json'});
+    res.end(JSON.stringify({ ok: false, erro: err.message }));
+  }
+}
+
+async function handleFocusNfseConsultar(req, res, ref, token, config) {
+  try {
+    const amb  = (config?.ambiente || '').includes('Produção') ? 'producao' : 'homologacao';
+    const host = amb === 'producao' ? FOCUS_PROD : FOCUS_HOM;
+    const result = await focusRequest({ host, path: `/v2/nfsen/${ref}`, method: 'GET', token, body: null });
+    console.log(`[NFS-e consulta] ref: ${ref} → status HTTP: ${result.status}, status nota: ${result.body?.status}, erros: ${JSON.stringify(result.body?.erros || result.body?.mensagem_sefaz || result.body?.mensagem || '').slice(0,400)}`);
+    res.writeHead(result.status === 200 ? 200 : 404, {'Content-Type':'application/json'});
+    res.end(JSON.stringify(result.body));
+  } catch (err) {
+    res.writeHead(500, {'Content-Type':'application/json'});
+    res.end(JSON.stringify({ ok: false, erro: err.message }));
+  }
+}
+
 async function handleFocusEmitir(req, res) {
   try {
     const body   = await lerCorpo(req);
@@ -220,7 +402,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
 const DB_KEYS = new Set([
   'techstore-config', 'techstore-produtos', 'techstore-clientes',
-  'techstore-notas-emitidas', 'techstore-usuarios', 'techstore-convites',
+  'techstore-notas-emitidas', 'techstore-nfse-emitidas', 'techstore-usuarios', 'techstore-convites',
   'techstore-cert', 'techstore-nfe-ultNSU',
 ]);
 
@@ -369,6 +551,26 @@ if (!fileUrl) { res.writeHead(400); res.end('url obrigatória'); return; }
   // ── Focus NFe: /focus/nfe/cancelar ──
   if (req.method === 'POST' && pathname === '/focus/nfe/cancelar') {
     return handleFocusCancelar(req, res);
+  }
+
+  // ── Focus NFS-e: /focus/nfse/emitir ──
+  if (req.method === 'POST' && pathname === '/focus/nfse/emitir') {
+    return handleFocusNfseEmitir(req, res);
+  }
+
+  // ── Focus NFS-e: /focus/nfse/cancelar ──
+  if (req.method === 'POST' && pathname === '/focus/nfse/cancelar') {
+    return handleFocusNfseCancelar(req, res);
+  }
+
+  // ── Focus NFS-e: /focus/nfse/consultar?ref=...&token=...&ambiente=... ──
+  if (req.method === 'GET' && pathname === '/focus/nfse/consultar') {
+    const qs     = new URLSearchParams(parsed.query || '');
+    const ref    = qs.get('ref');
+    const token  = qs.get('token') || '';
+    const config = { ambiente: qs.get('ambiente') || '' };
+    if (!ref) { res.writeHead(400, {'Content-Type':'application/json'}); res.end(JSON.stringify({ ok:false, erro:'ref obrigatório' })); return; }
+    return handleFocusNfseConsultar(req, res, ref, token, config);
   }
 
   // ── Ping Focus NFe ──

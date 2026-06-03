@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Emissor de Notas — Gestão Fiscal</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d6efd'/><text x='16' y='23' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='15' fill='white' text-anchor='middle' letter-spacing='-0.5'>RJ</text></svg>">
   <style>
     :root {
       --azul: #0d6efd;
@@ -762,6 +763,9 @@
     <div class="nav-item" data-page="notas-recebidas">
       <span class="icone">📥</span> Notas Fiscais Recebidas
     </div>
+    <div class="nav-item" data-page="nfse">
+      <span class="icone">🏙️</span> NFS-e (Serviços)
+    </div>
     <div class="nav-item" data-page="clientes">
       <span class="icone">👥</span> Clientes
     </div>
@@ -818,33 +822,33 @@
       <div class="card-metrica">
         <div class="icone-metrica icone-azul">🖥️</div>
         <div class="dados">
-          <div class="valor">0</div>
-          <div class="label">Produtos em Estoque</div>
-          <div class="variacao">—</div>
+          <div class="valor" id="dash-produtos">—</div>
+          <div class="label">Produtos Ativos</div>
+          <div class="variacao" id="dash-produtos-var">—</div>
         </div>
       </div>
       <div class="card-metrica">
         <div class="icone-metrica icone-verde">💰</div>
         <div class="dados">
-          <div class="valor">R$ 0</div>
+          <div class="valor" id="dash-vendas">—</div>
           <div class="label">Vendas no Mês</div>
-          <div class="variacao">—</div>
+          <div class="variacao" id="dash-vendas-var">—</div>
         </div>
       </div>
       <div class="card-metrica">
         <div class="icone-metrica icone-laranja">🧾</div>
         <div class="dados">
-          <div class="valor">0</div>
-          <div class="label">Notas Emitidas</div>
-          <div class="variacao">—</div>
+          <div class="valor" id="dash-notas">—</div>
+          <div class="label">Notas Emitidas (mês)</div>
+          <div class="variacao" id="dash-notas-var">NF-e + NFS-e</div>
         </div>
       </div>
       <div class="card-metrica">
         <div class="icone-metrica icone-roxo">👥</div>
         <div class="dados">
-          <div class="valor">0</div>
-          <div class="label">Clientes Ativos</div>
-          <div class="variacao">—</div>
+          <div class="valor" id="dash-clientes">—</div>
+          <div class="label">Clientes Cadastrados</div>
+          <div class="variacao" id="dash-clientes-var">—</div>
         </div>
       </div>
     </div>
@@ -885,8 +889,8 @@
     <div class="grid-principal">
       <div class="card">
         <div class="card-header">
-          <span class="card-titulo">Produtos Recentes</span>
-          <button class="btn btn-secundario" style="padding:6px 14px; font-size:13px" onclick="navegarPara('produtos')">Ver todos</button>
+          <span class="card-titulo">Produtos em Estoque</span>
+          <button class="btn btn-secundario" style="padding:6px 14px;font-size:13px" onclick="navegarPara('produtos')">Ver todos</button>
         </div>
         <table>
           <thead>
@@ -897,7 +901,7 @@
               <th>Status</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="dash-tbody-produtos">
             <tr><td colspan="4" style="text-align:center;color:var(--texto-muted);padding:20px">Nenhum produto cadastrado.</td></tr>
           </tbody>
         </table>
@@ -905,19 +909,10 @@
 
       <div class="painel-lateral">
         <div class="card">
-          <div class="card-header"><span class="card-titulo">Vendas por Categoria</span></div>
-          <div class="grafico-bars">
-            <div class="bar-row"><div class="bar-label">Noteb.</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="bar-valor">R$0</div></div>
-            <div class="bar-row"><div class="bar-label">Redes</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="bar-valor">R$0</div></div>
-            <div class="bar-row"><div class="bar-label">Perif.</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="bar-valor">R$0</div></div>
-            <div class="bar-row"><div class="bar-label">Monit.</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="bar-valor">R$0</div></div>
-            <div class="bar-row"><div class="bar-label">Outros</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="bar-valor">R$0</div></div>
+          <div class="card-header"><span class="card-titulo">Últimas Notas Emitidas</span></div>
+          <div id="dash-notas-recentes" style="font-size:13px;padding:0 16px">
+            <div style="text-align:center;color:var(--texto-muted);padding:20px">Nenhuma nota emitida ainda.</div>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header"><span class="card-titulo">Notas Recentes</span></div>
-          <div style="text-align:center;color:var(--texto-muted);padding:20px;font-size:13px">Nenhuma nota emitida ainda.</div>
         </div>
       </div>
     </div>
@@ -990,6 +985,44 @@
         </thead>
         <tbody id="tbody-nfe-emitidas">
           <tr><td colspan="7" style="text-align:center;color:var(--texto-muted);padding:28px">Nenhuma nota fiscal emitida ainda.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== NFS-e ===== -->
+  <section class="secao" id="sec-nfse">
+    <div class="secao-header">
+      <div>
+        <div class="secao-titulo">NFS-e — Notas Fiscais de Serviço</div>
+        <div class="secao-subtitulo">Emissão de NFS-e pela Prefeitura do Rio de Janeiro</div>
+      </div>
+      <button class="btn btn-sucesso" onclick="abrirModalNfse()">🏙️ Emitir NFS-e</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button id="filtro-nfse-todas" class="btn btn-primario" onclick="filtrarNfsePorAmbiente('todas')">Todas</button>
+      <button id="filtro-nfse-prod"  class="btn btn-secundario" onclick="filtrarNfsePorAmbiente('producao')">Produção</button>
+      <button id="filtro-nfse-hom"   class="btn btn-secundario" onclick="filtrarNfsePorAmbiente('homologacao')">Homologação</button>
+    </div>
+    <div class="barra-pesquisa">
+      <input class="input-pesquisa" id="input-busca-nfse" type="text" placeholder="🔍  Buscar por número, tomador ou discriminação..." oninput="filtrarNfseEmitidas(this.value)">
+    </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Tomador</th>
+            <th>Emissão</th>
+            <th>Discriminação</th>
+            <th>Valor</th>
+            <th>Ambiente</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-nfse-emitidas">
+          <tr><td colspan="8" style="text-align:center;color:var(--texto-muted);padding:28px">Nenhuma NFS-e emitida ainda.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1303,6 +1336,119 @@
     </div>
   </div>
 
+  <!-- ===== AVISO NFS-e ===== -->
+  <div class="modal-overlay" id="modal-aviso-nfse" onclick="if(event.target===this) fecharModal('modal-aviso-nfse')">
+    <div class="modal" style="max-width:560px;width:95vw">
+      <div class="modal-titulo">⚠️ Emissão de NFS-e — Atenção</div>
+      <div style="padding:24px;line-height:1.7;font-size:14px">
+        <p style="margin:0 0 14px">A emissão de NFS-e (Nota Fiscal de Serviço) pelo sistema <strong>ainda não está disponível via API</strong> para empresas do <strong>Simples Nacional</strong> no município do Rio de Janeiro.</p>
+        <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:14px 16px;margin-bottom:14px">
+          <strong>Por que?</strong><br>
+          O Rio de Janeiro aderiu ao Sistema Nacional NFS-e em janeiro de 2026, mas <strong>não cadastrou os códigos de serviços</strong> de entrega, transporte e manutenção de computadores para empresas do Simples Nacional na plataforma nacional. Toda tentativa de emissão retorna o erro <code style="background:#f8f9fa;padding:2px 5px;border-radius:4px">E0312</code> — confirmado tanto em homologação quanto em produção.
+        </div>
+        <p style="margin:0 0 14px">Por enquanto, as NFS-e devem ser emitidas <strong>diretamente no portal da Prefeitura do Rio de Janeiro</strong>:</p>
+        <a href="https://nfsenacional.prefeitura.rio" target="_blank" rel="noopener"
+           style="display:block;background:#0d6efd;color:#fff;text-align:center;padding:12px 20px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none;margin-bottom:16px">
+          🌐 Acessar Portal NFS-e — Prefeitura do Rio de Janeiro
+        </a>
+        <p style="margin:0;font-size:12px;color:var(--texto-muted)">Esta tela mantém o histórico das NFS-e já emitidas. Assim que a Prefeitura corrigir o cadastro, a emissão via sistema será reativada automaticamente.</p>
+      </div>
+      <div style="padding:0 24px 20px;display:flex;justify-content:flex-end">
+        <button class="btn btn-primario" onclick="fecharModal('modal-aviso-nfse')">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL NFS-e ===== -->
+  <div class="modal-overlay" id="modal-nfse">
+    <div class="modal" style="max-width:860px;width:95vw">
+      <div class="modal-titulo">🏙️ Emitir NFS-e</div>
+
+      <!-- Ambiente -->
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:8px;letter-spacing:.5px">Ambiente</div>
+      <div style="display:flex;gap:20px;align-items:center;margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px">
+          <input type="radio" name="nfse-amb" value="homologacao" checked> Homologação (teste)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px">
+          <input type="radio" name="nfse-amb" value="producao"> Produção
+        </label>
+      </div>
+
+      <!-- Tomador -->
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:8px;letter-spacing:.5px">Tomador do Serviço</div>
+      <div class="form-grid">
+        <div class="form-grupo" style="grid-column:span 2">
+          <label>Selecionar cliente cadastrado</label>
+          <select id="nfse-cliente-sel" onchange="nfsePreencherCliente(this.value)">
+            <option value="">— Selecione um cliente cadastrado —</option>
+          </select>
+        </div>
+        <div class="form-grupo" style="grid-column:span 2"><label>Nome / Razão Social</label><input type="text" id="nfse-tom-nome" placeholder="Nome ou razão social"></div>
+        <div class="form-grupo"><label>CPF / CNPJ</label><input type="text" id="nfse-tom-doc" placeholder="00.000.000/0001-00" oninput="mascaraDocNfse(this)" maxlength="18"></div>
+        <div class="form-grupo"><label>E-mail (opcional)</label><input type="email" id="nfse-tom-email" placeholder="tomador@email.com"></div>
+        <div class="form-grupo" style="grid-column:span 2"><label>Logradouro</label><input type="text" id="nfse-tom-logradouro" placeholder="Rua, Avenida..."></div>
+        <div class="form-grupo"><label>Número</label><input type="text" id="nfse-tom-numero" placeholder="S/N"></div>
+        <div class="form-grupo"><label>Bairro</label><input type="text" id="nfse-tom-bairro" placeholder="Bairro"></div>
+        <div class="form-grupo"><label>Município</label><input type="text" id="nfse-tom-municipio" placeholder="Rio de Janeiro"></div>
+        <div class="form-grupo" style="display:grid;grid-template-columns:80px 1fr;gap:8px">
+          <div><label>UF</label><input type="text" id="nfse-tom-uf" placeholder="RJ" maxlength="2" style="text-transform:uppercase"></div>
+          <div><label>CEP</label><input type="text" id="nfse-tom-cep" placeholder="00000-000"></div>
+        </div>
+      </div>
+
+      <!-- Serviço -->
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin:16px 0 8px;letter-spacing:.5px">Serviço Prestado</div>
+      <div class="form-grid">
+        <div class="form-grupo">
+          <label>CNAE</label>
+          <select id="nfse-cnae" onchange="nfseAtualizarItem()">
+            <option value="5320202">5320-2/02 — Serviços de entrega rápida</option>
+            <option value="5320201">5320-2/01 — Serviços de malote</option>
+            <option value="4930202">4930-2/02 — Transporte rodoviário de carga</option>
+            <option value="9511800">9511-8/00 — Manutenção de computadores</option>
+          </select>
+        </div>
+        <div class="form-grupo">
+          <label>Item LC 116/2003</label>
+          <input type="text" id="nfse-item-lista" value="16.01" readonly style="background:var(--cinza-bg);cursor:default">
+        </div>
+        <div class="form-grupo"><label>Valor do Serviço (R$)</label><input type="number" id="nfse-valor" min="0.01" step="0.01" placeholder="0,00"></div>
+        <div class="form-grupo"><label>Alíquota ISS (%)</label><input type="number" id="nfse-aliquota" min="0" max="100" step="0.01" value="5" placeholder="5"></div>
+        <div class="form-grupo"><label>ISS Retido?</label>
+          <select id="nfse-iss-retido">
+            <option value="2">Não retido</option>
+            <option value="1">Retido pelo tomador</option>
+          </select>
+        </div>
+        <div class="form-grupo" style="grid-column:span 2">
+          <label>Natureza da Operação</label>
+          <select id="nfse-natureza">
+            <option value="1">1 — Tributação no município</option>
+            <option value="2">2 — Tributação fora do município</option>
+            <option value="3">3 — Isenção</option>
+            <option value="4">4 — Imune</option>
+          </select>
+        </div>
+        <div class="form-grupo" style="grid-column:span 2">
+          <label>Discriminação do Serviço</label>
+          <textarea id="nfse-discriminacao" rows="3" placeholder="Descreva detalhadamente o serviço prestado..." style="width:100%;padding:8px 12px;border:1px solid var(--borda);border-radius:8px;font-size:14px;resize:vertical;font-family:inherit;color:var(--texto);background:var(--branco)"></textarea>
+        </div>
+        <div class="form-grupo" style="grid-column:span 2">
+          <label>Informações Adicionais (opcional)</label>
+          <input type="text" id="nfse-info-adicional" placeholder="Observações da nota">
+        </div>
+      </div>
+
+      <div id="nfse-emit-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px"></div>
+
+      <div class="modal-footer" style="margin-top:16px">
+        <button class="btn btn-secundario" onclick="fecharModal('modal-nfse')">Cancelar</button>
+        <button class="btn btn-sucesso" id="btn-emitir-nfse" onclick="emitirNfse()">🏙️ Emitir NFS-e</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== MODAL LIVRO DE NF-e ===== -->
   <div class="modal-overlay" id="modal-livro-nfe">
     <div class="modal" style="max-width:1100px;width:98%">
@@ -1465,19 +1611,31 @@
       <div class="card">
         <div class="card-header"><span class="card-titulo">🧾 Parâmetros NF-e</span></div>
         <div style="padding:24px">
-          <div class="form-grupo"><label>Ambiente SEFAZ</label><select id="cfg-sefaz-amb"><option>Produção</option><option>Homologação (teste)</option></select></div>
-          <div class="form-grupo"><label>Série da NF-e</label><input type="text" id="cfg-nfe-serie" value="1"></div>
-          <div class="form-grupo"><label>Próximo número</label><input type="number" id="cfg-nfe-proximo" value="39"></div>
-          <div class="form-grupo"><label>CSC (Código Segurança Contribuinte)</label><input type="text" id="cfg-csc" placeholder="Token SEFAZ RJ"></div>
-          <div class="form-grupo" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--borda)">
-            <label style="display:flex;align-items:center;gap:8px">
-              🔗 Token Focus NFe
-              <span style="font-size:11px;font-weight:400;color:var(--texto-muted)">(API intermediária — substitui integração SOAP direta)</span>
-            </label>
-            <input type="password" id="cfg-focus-token" placeholder="Cole aqui o token de acesso da Focus NFe" style="font-family:monospace">
-            <div style="font-size:12px;color:var(--texto-muted);margin-top:6px">
-              Obtenha em <strong>app.focusnfe.com.br → Configurações → Tokens de acesso</strong>.
-              Quando preenchido, a emissão usa a Focus NFe (sem necessidade do servidor SEFAZ local).
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--borda)">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:12px;letter-spacing:.5px">📋 Sequência de Numeração</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <div style="padding:14px;background:var(--cinza-bg);border-radius:10px;border:1px solid var(--borda)">
+                <div style="font-size:12px;font-weight:700;color:#856404;margin-bottom:10px">🟡 Homologação</div>
+                <div class="form-grupo"><label>Série</label><input type="text" id="cfg-nfe-serie-hom" value="1" style="max-width:80px"></div>
+                <div class="form-grupo" style="margin-top:8px"><label>Próximo número</label><input type="number" id="cfg-nfe-proximo-hom" value="1"></div>
+              </div>
+              <div style="padding:14px;background:var(--cinza-bg);border-radius:10px;border:1px solid var(--borda)">
+                <div style="font-size:12px;font-weight:700;color:#0f5132;margin-bottom:10px">🟢 Produção</div>
+                <div class="form-grupo"><label>Série</label><input type="text" id="cfg-nfe-serie-prod" value="1" style="max-width:80px"></div>
+                <div class="form-grupo" style="margin-top:8px"><label>Próximo número</label><input type="number" id="cfg-nfe-proximo-prod" value="1"></div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--borda)">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:12px;letter-spacing:.5px">🔗 Tokens Focus NFe</div>
+            <div style="font-size:12px;color:var(--texto-muted);margin-bottom:14px">Obtenha em <strong>app.focusnfe.com.br → Configurações → Tokens de acesso</strong>. Configure os dois ambientes — escolha qual usar no momento da emissão.</div>
+            <div class="form-grupo">
+              <label>Token Homologação (testes)</label>
+              <input type="password" id="cfg-focus-token-hom" placeholder="Token do ambiente de homologação" style="font-family:monospace">
+            </div>
+            <div class="form-grupo" style="margin-top:10px">
+              <label>Token Produção</label>
+              <input type="password" id="cfg-focus-token-prod" placeholder="Token do ambiente de produção" style="font-family:monospace">
             </div>
           </div>
         </div>
@@ -1761,6 +1919,17 @@
   <div class="modal" style="max-width:860px;width:95vw">
     <div class="modal-titulo">🧾 Emitir NF-e</div>
 
+    <!-- Ambiente -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:8px;letter-spacing:.5px">Ambiente</div>
+    <div style="display:flex;gap:20px;align-items:center;margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px">
+        <input type="radio" name="nfe-amb" value="homologacao" checked> Homologação (teste)
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px">
+        <input type="radio" name="nfe-amb" value="producao"> Produção
+      </label>
+    </div>
+
     <!-- Destinatário -->
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:8px;letter-spacing:.5px">Destinatário</div>
     <div class="form-grid">
@@ -2026,6 +2195,7 @@
     produtos:      '🖥️ Produtos',
     'notas-emitidas':  '🧾 Notas Fiscais Emitidas',
     'notas-recebidas': '📥 Notas Fiscais Recebidas',
+    'nfse':            '🏙️ NFS-e — Notas Fiscais de Serviço',
     clientes:      '👥 Clientes',
     estoque:       '📦 Estoque',
     financeiro:    '💰 Financeiro',
@@ -2051,6 +2221,11 @@
 
     // Inicializa painel de consulta quando entra em NF Recebidas
     if (pagina === 'notas-recebidas') inicializarConsultaNFe();
+
+    // Atualiza dashboard ao navegar para ele
+    if (pagina === 'dashboard') atualizarDashboard();
+    if (pagina === 'clientes') atualizarTotaisClientes();
+    if (pagina === 'nfse') abrirAvisoNfse();
 
     // Scroll para o topo da área de conteúdo
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2596,13 +2771,19 @@
 
     // Config da empresa
     const cfg = JSON.parse(localStorage.getItem('techstore-config') || '{}');
-    const nNF        = parseInt(cfg['cfg-nfe-proximo'] || '1', 10);
-    const focusToken = (cfg['cfg-focus-token'] || '').trim();
+    const _nfeAmb    = document.querySelector('input[name="nfe-amb"]:checked')?.value || 'homologacao';
+    const _cfgFull   = _getConfig();
+    const _isNfeProd = _nfeAmb === 'producao';
+    const _serieKey  = _isNfeProd ? 'cfg-nfe-serie-prod'   : 'cfg-nfe-serie-hom';
+    const _proxKey   = _isNfeProd ? 'cfg-nfe-proximo-prod' : 'cfg-nfe-proximo-hom';
+    const nNF        = parseInt(cfg[_proxKey] || cfg['cfg-nfe-proximo'] || '1', 10);
+    const _serie     = cfg[_serieKey] || cfg['cfg-nfe-serie'] || '1';
+    const focusToken = (_isNfeProd ? _cfgFull.tokenProducao : _cfgFull.tokenHomologacao).trim();
     const usarFocus  = !!focusToken;
 
     const dadosComuns = {
       nNF,
-      serie:       cfg['cfg-nfe-serie'] || '1',
+      serie:       _serie,
       naturezaOp:  document.getElementById('nfe-natureza')?.value || 'Venda de Mercadoria',
       tpNF:        '1',
       cliente: {
@@ -2632,7 +2813,7 @@
       xBairro:     cfg['cfg-bairro']      || 'Centro',
       cep:         cfg['cfg-cep']         || '',
       regime:      cfg['cfg-regime']      || 'Simples Nacional',
-      ambiente:    cfg['cfg-sefaz-amb']   || 'Homologação (teste)',
+      ambiente:    _nfeAmb === 'producao' ? 'Produção' : 'Homologação (teste)',
     };
 
     // Se não tem Focus NFe, exige certificado e servidor local
@@ -2670,7 +2851,7 @@
             certBase64: certData.base64,
             certSenha:  certData.senha,
             dados: dadosComuns,
-            config: { ...configComum, csc: cfg['cfg-csc'] || '' },
+            config: { ...configComum },
           }),
           signal: AbortSignal.timeout(45000),
         });
@@ -2678,9 +2859,9 @@
       }
 
       if (dados.ok) {
-        cfg['cfg-nfe-proximo'] = String(nNF + 1);
+        cfg[_proxKey] = String(nNF + 1);
         localStorage.setItem('techstore-config', JSON.stringify(cfg));
-        const elProx = document.getElementById('cfg-nfe-proximo');
+        const elProx = document.getElementById(_proxKey.replace('cfg-', 'cfg-'));
         if (elProx) elProx.value = String(nNF + 1);
 
         const protMsg = dados.nProt ? `Protocolo: ${dados.nProt}` : '';
@@ -2697,7 +2878,7 @@
           serie:       dadosComuns.serie,
           dhEmi:       new Date().toISOString(),
           focusRef:    dados.ref || '',
-          ambiente:    cfg['cfg-sefaz-amb'] || 'Homologação (teste)',
+          ambiente:    _nfeAmb === 'producao' ? 'Produção' : 'Homologação (teste)',
           destNome,
           destDoc,
           destEnd:     dadosComuns.cliente.logradouro,
@@ -2877,6 +3058,7 @@
       tds[1].textContent = c.doc;
       tds[2].textContent = c.cidade;
       tds[3].textContent = c.email;
+      tds[4].innerHTML = _fmtTotalCli(c.doc);
       tds[5].innerHTML = `<span class="badge ${badgeClass}">${badgeTexto}</span>`;
       fecharModal('modal-cliente');
       mostrarToast('✅', `Cliente "${c.nome}" atualizado!`);
@@ -2888,7 +3070,7 @@
         <td><div><div style="font-weight:600">${c.nome}</div><div style="font-size:12px;color:var(--texto-muted)">${c.tipo}</div></div></td>
         <td>${c.doc}</td><td>${c.cidade}</td>
         <td>${c.email}</td>
-        <td><strong>R$ 0</strong></td>
+        <td>${_fmtTotalCli(c.doc)}</td>
         <td><span class="badge ${badgeClass}">${badgeTexto}</span></td>
         <td><div class="acoes-produto"><button class="btn btn-secundario" style="padding:5px 12px;font-size:12px" onclick="editarCliente(this)">✏️ Editar</button><button class="btn btn-perigo" style="padding:5px 12px;font-size:12px" onclick="deletarCliente(this)">🗑️ Deletar</button></div></td>
       `;
@@ -2997,6 +3179,35 @@
       }));
       localStorage.setItem('techstore-clientes', JSON.stringify(clientes));
     } catch(e) { console.warn('Erro ao salvar clientes:', e); }
+  }
+
+  function _totalComprasCliente(doc) {
+    try {
+      const docLimpo = (doc || '').replace(/\D/g, '');
+      const notas = JSON.parse(localStorage.getItem('techstore-notas-emitidas') || '[]');
+      return notas
+        .filter(n => /^autoriz/i.test(n.status || '') && /prod/i.test(n.ambiente || '')
+                  && (n.destDoc || '').replace(/\D/g, '') === docLimpo)
+        .reduce((s, n) => s + parseFloat(n.total || n.valor || 0), 0);
+    } catch(e) { return 0; }
+  }
+
+  function _fmtTotalCli(doc) {
+    const t = _totalComprasCliente(doc);
+    return t > 0
+      ? `<strong>${t.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong>`
+      : `<strong>R$ 0</strong>`;
+  }
+
+  function abrirAvisoNfse() {
+    abrirModal('modal-aviso-nfse');
+  }
+
+  function atualizarTotaisClientes() {
+    document.querySelectorAll('#tbody-clientes tr[data-doc]').forEach(tr => {
+      const td = tr.querySelectorAll('td')[4];
+      if (td) td.innerHTML = _fmtTotalCli(tr.dataset.doc);
+    });
   }
 
   function carregarClientesSalvos() {
@@ -3268,7 +3479,8 @@
   const CFG_CAMPOS = [
     'cfg-razao-social','cfg-cnpj','cfg-ie','cfg-regime',
     'cfg-nome','cfg-email','cfg-perfil',
-    'cfg-sefaz-amb','cfg-nfe-serie','cfg-nfe-proximo','cfg-csc','cfg-focus-token',
+    'cfg-nfe-serie-hom','cfg-nfe-proximo-hom','cfg-nfe-serie-prod','cfg-nfe-proximo-prod',
+    'cfg-focus-token-hom','cfg-focus-token-prod',
     'cfg-smtp-nome'
   ];
 
@@ -3577,7 +3789,8 @@
     }
 
     const config  = JSON.parse(localStorage.getItem('techstore-config') || '{}');
-    const ambiente = config['cfg-sefaz-amb'] || 'Homologação (teste)';
+    const cfgQuery = _getConfig();
+    const ambiente = cfgQuery.ambiente || 'Homologação (teste)';
     const ultNSU  = parseInt(localStorage.getItem('techstore-nfe-ultNSU') || '0', 10);
 
     try {
@@ -3709,13 +3922,13 @@
     window.open('https://www.nfe.fazenda.gov.br/portal/consulta.aspx?tipoConsulta=resumo&chave=' + chave, '_blank');
   }
 
-  async function baixarArquivoNFe(urlFocus, nomeArquivo) {
-    const cfg   = JSON.parse(localStorage.getItem('techstore-config') || '{}');
-    const token = cfg['cfg-focus-token'] || '';
+  async function baixarArquivoNFe(urlFocus, nomeArquivo, ambienteNota) {
+    const cfgFull = _getConfig();
+    const isProd  = (ambienteNota || '').toLowerCase().includes('prod') || (cfgFull.ambiente || '').includes('Produção');
+    const token   = isProd ? cfgFull.tokenProducao : cfgFull.tokenHomologacao;
     // Se a URL for relativa, adiciona o host da Focus NFe
     if (urlFocus && urlFocus.startsWith('/')) {
-      const isProd = (cfg['cfg-sefaz-amb'] || '').includes('Produção');
-      const host   = isProd ? 'https://api.focusnfe.com.br' : 'https://homologacao.focusnfe.com.br';
+      const host = isProd ? 'https://api.focusnfe.com.br' : 'https://homologacao.focusnfe.com.br';
       urlFocus = host + urlFocus;
     }
     try {
@@ -4000,6 +4213,390 @@ async function registrarConvidado() {
   _aplicarSessao(_setSessao(user));
   if(typeof mostrarToast==='function') mostrarToast('✅','Conta criada! Bem-vindo(a), '+nome+'!');
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NFS-e — Notas Fiscais de Serviço
+// ══════════════════════════════════════════════════════════════════════════════
+
+const NFSE_CNAE_ITEM = {
+  '5320202': '16.01',
+  '5320201': '16.01',
+  '4930202': '16.01',
+  '9511800': '14.01',
+};
+
+function _getConfig() {
+  const cfg = JSON.parse(localStorage.getItem('techstore-config') || '{}');
+  // Compatibilidade: se tiver token antigo, usa como fallback
+  const tokenLegacy = cfg['cfg-focus-token'] || '';
+  return {
+    ...cfg,
+    tokenHomologacao: cfg['cfg-focus-token-hom'] || tokenLegacy,
+    tokenProducao:    cfg['cfg-focus-token-prod'] || tokenLegacy,
+    ambiente:         cfg['cfg-sefaz-amb'] || '',
+  };
+}
+
+function _getNfseEmitidas() {
+  try { return JSON.parse(localStorage.getItem('techstore-nfse-emitidas') || '[]'); } catch { return []; }
+}
+function _salvarNfseEmitidas(lista) {
+  localStorage.setItem('techstore-nfse-emitidas', JSON.stringify(lista));
+}
+
+function mascaraDocNfse(el) {
+  let v = el.value.replace(/\D/g, '');
+  if (v.length <= 11) {
+    v = v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  } else {
+    v = v.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+  }
+  el.value = v;
+}
+
+function nfseAtualizarItem() {
+  const cnae = document.getElementById('nfse-cnae').value;
+  document.getElementById('nfse-item-lista').value = NFSE_CNAE_ITEM[cnae] || '16.01';
+}
+
+function _popularClientesNfse() {
+  const sel = document.getElementById('nfse-cliente-sel');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Selecione um cliente cadastrado —</option>';
+  document.querySelectorAll('#tbody-clientes tr[data-nome]').forEach(tr => {
+    const opt = document.createElement('option');
+    opt.value = tr.dataset.doc || tr.dataset.nome;
+    opt.textContent = tr.dataset.nome + ' — ' + tr.dataset.doc;
+    opt.dataset.nome       = tr.dataset.nome       || '';
+    opt.dataset.doc        = tr.dataset.doc        || '';
+    opt.dataset.logradouro = tr.dataset.logradouro || '';
+    opt.dataset.numero     = tr.dataset.numero     || '';
+    opt.dataset.bairro     = tr.dataset.bairro     || '';
+    opt.dataset.municipio  = tr.dataset.municipio  || tr.dataset.cidade || '';
+    opt.dataset.uf         = tr.dataset.uf         || '';
+    opt.dataset.cep        = tr.dataset.cep        || '';
+    opt.dataset.email      = tr.dataset.email      || '';
+    sel.appendChild(opt);
+  });
+}
+
+function nfsePreencherCliente(val) {
+  const sel = document.getElementById('nfse-cliente-sel');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.dataset.nome) return;
+  const s = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  s('nfse-tom-nome',       opt.dataset.nome);
+  s('nfse-tom-doc',        opt.dataset.doc);
+  s('nfse-tom-email',      opt.dataset.email);
+  s('nfse-tom-logradouro', opt.dataset.logradouro);
+  s('nfse-tom-numero',     opt.dataset.numero);
+  s('nfse-tom-bairro',     opt.dataset.bairro);
+  s('nfse-tom-municipio',  opt.dataset.municipio || 'Rio de Janeiro');
+  s('nfse-tom-uf',         opt.dataset.uf || 'RJ');
+  s('nfse-tom-cep',        opt.dataset.cep);
+}
+
+function abrirModalNfse() {
+  _popularClientesNfse();
+  // Limpar campos
+  ['nfse-tom-doc','nfse-tom-nome','nfse-tom-logradouro','nfse-tom-numero','nfse-tom-cep',
+   'nfse-tom-bairro','nfse-tom-email','nfse-discriminacao','nfse-valor','nfse-info-adicional']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('nfse-cliente-sel').value = '';
+  document.getElementById('nfse-tom-municipio').value = 'Rio de Janeiro';
+  document.getElementById('nfse-tom-uf').value = 'RJ';
+  document.getElementById('nfse-cnae').value = '5320202';
+  document.getElementById('nfse-item-lista').value = '16.01';
+  document.getElementById('nfse-iss-retido').value = '2';
+  document.getElementById('nfse-natureza').value = '1';
+  document.querySelectorAll('input[name="nfse-amb"]')[0].checked = true;
+  const statusEl = document.getElementById('nfse-emit-status');
+  statusEl.style.display = 'none'; statusEl.innerHTML = '';
+  document.getElementById('btn-emitir-nfse').disabled = false;
+  abrirModal('modal-nfse');
+}
+
+async function emitirNfse() {
+  const statusEl = document.getElementById('nfse-emit-status');
+  const btnEl    = document.getElementById('btn-emitir-nfse');
+
+  const _show = (html, tipo='info') => {
+    const bg    = tipo==='erro' ? '#f8d7da' : tipo==='ok' ? '#d1e7dd' : '#cfe2ff';
+    const color = tipo==='erro' ? '#842029' : tipo==='ok' ? '#0f5132' : '#084298';
+    const border= tipo==='erro' ? '#f5c2c7' : tipo==='ok' ? '#badbcc' : '#b6d4fe';
+    statusEl.style.cssText = `display:block;padding:10px 14px;border-radius:8px;font-size:13px;background:${bg};color:${color};border:1px solid ${border}`;
+    statusEl.innerHTML = html;
+  };
+
+  const ambVal  = document.querySelector('input[name="nfse-amb"]:checked')?.value || 'homologacao';
+  const config  = _getConfig();
+  const tokenKey = ambVal === 'producao' ? 'tokenProducao' : 'tokenHomologacao';
+  const token   = config[tokenKey];
+  if (!token) { _show('⚠️ Token Focus NFe não configurado. Acesse Configurações.', 'erro'); return; }
+
+  const tomDoc  = document.getElementById('nfse-tom-doc').value.trim();
+  const tomNome = document.getElementById('nfse-tom-nome').value.trim();
+  const valor   = parseFloat(document.getElementById('nfse-valor').value || '0');
+  const disc    = document.getElementById('nfse-discriminacao').value.trim();
+
+  if (!tomNome) { _show('⚠️ Informe o nome/razão social do tomador.', 'erro'); return; }
+  if (!disc)    { _show('⚠️ Informe a discriminação do serviço.', 'erro'); return; }
+  if (valor <= 0) { _show('⚠️ Informe o valor do serviço.', 'erro'); return; }
+
+  btnEl.disabled = true;
+  _show('⏳ Enviando para a prefeitura... aguarde.');
+
+  const dados = {
+    tomador: {
+      doc:         tomDoc,
+      nome:        tomNome,
+      logradouro:  document.getElementById('nfse-tom-logradouro').value.trim(),
+      numero:      document.getElementById('nfse-tom-numero').value.trim() || 'S/N',
+      bairro:      document.getElementById('nfse-tom-bairro').value.trim(),
+      cep:         document.getElementById('nfse-tom-cep').value.trim(),
+      uf:          document.getElementById('nfse-tom-uf').value.trim() || 'RJ',
+      municipio:   document.getElementById('nfse-tom-municipio').value.trim(),
+      codigoMun:   '3304557',
+      email:       document.getElementById('nfse-tom-email').value.trim(),
+    },
+    servico: {
+      valor:        valor,
+      cnae:         document.getElementById('nfse-cnae').value,
+      itemLista:    document.getElementById('nfse-item-lista').value,
+      discriminacao: disc,
+      issRetido:    document.getElementById('nfse-iss-retido').value,
+      aliquotaIss:  document.getElementById('nfse-aliquota').value || '5',
+    },
+    naturezaOp:    document.getElementById('nfse-natureza').value,
+    infAdicional:  document.getElementById('nfse-info-adicional').value.trim(),
+  };
+
+  // Envia apenas os campos necessários (evita mandar certificado e dados grandes)
+  const ambConfig = {
+    ambiente:           ambVal === 'producao' ? 'Produção' : 'Homologação',
+    cnpj:               config.cnpj,
+    inscricaoMunicipal: config.inscricaoMunicipal || '16269891',
+  };
+
+  try {
+    const resp = await fetch('/focus/nfse/emitir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, dados, config: ambConfig }),
+    });
+    // Lê como texto primeiro para diagnosticar erros de parse
+    const rawText = await resp.text();
+    let data;
+    try { data = JSON.parse(rawText); }
+    catch { throw new Error(`Servidor retornou HTTP ${resp.status}: ${rawText.slice(0, 200)}`); }
+
+    if (data.ok) {
+      // Salvar nota como "aguardando" imediatamente
+      const lista = _getNfseEmitidas();
+      lista.unshift({
+        ref:          data.ref,
+        numero:       null,
+        tomador:      tomNome,
+        tomadorDoc:   tomDoc,
+        discriminacao: disc,
+        valor,
+        ambiente:     ambVal,
+        status:       'aguardando',
+        emissao:      new Date().toISOString(),
+        pdf_url:      null,
+        xml_url:      null,
+      });
+      _salvarNfseEmitidas(lista);
+      renderizarNfseEmitidas(lista);
+      _show('⏳ NFS-e enviada! Aguardando autorização da Prefeitura — a lista será atualizada automaticamente.', 'info');
+      btnEl.disabled = false;
+      // Fechar modal e iniciar polling em background
+      setTimeout(() => fecharModal('modal-nfse'), 2000);
+      setTimeout(() => nfsePollarPendentes(), 8000);
+    } else {
+      _show(`❌ ${data.erro || 'Erro ao emitir NFS-e.'}`, 'erro');
+      btnEl.disabled = false;
+    }
+  } catch (err) {
+    _show(`❌ Erro de comunicação: ${err.message}`, 'erro');
+    btnEl.disabled = false;
+  }
+}
+
+// Polling automático para notas aguardando autorização
+let _nfsePollingAtivo = false;
+async function nfsePollarPendentes() {
+  if (_nfsePollingAtivo) return;
+  _nfsePollingAtivo = true;
+  try {
+    const lista   = _getNfseEmitidas();
+    const pending = lista.filter(n => n.status === 'aguardando' && n.ref);
+    if (!pending.length) { _nfsePollingAtivo = false; return; }
+
+    const config = _getConfig();
+    let atualizado = false;
+
+    for (const nota of pending) {
+      const tokenKey = nota.ambiente === 'producao' ? 'tokenProducao' : 'tokenHomologacao';
+      const token = config[tokenKey];
+      if (!token) continue;
+      try {
+        const resp = await fetch(`/focus/nfse/consultar?ref=${encodeURIComponent(nota.ref)}&token=${encodeURIComponent(token)}&ambiente=${encodeURIComponent(nota.ambiente === 'producao' ? 'Produção' : 'Homologação')}`);
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        if (!data || !data.status) continue;
+
+        if (data.status === 'autorizado') {
+          nota.status  = 'autorizado';
+          nota.numero  = data.numero_nfse || data.numero || null;
+          nota.pdf_url = data.url || data.caminho_pdf_nota_fiscal || null;
+          nota.xml_url = data.caminho_xml_nota_fiscal || null;
+          nota.codigo_verificacao = data.codigo_verificacao || null;
+          atualizado = true;
+        } else if (['rejeitado', 'erro', 'erro_autorizacao', 'cancelado'].includes(data.status)) {
+          // Remove da lista — nota com erro não tem utilidade
+          nota._remover = true;
+          atualizado = true;
+        }
+      } catch(_) {}
+    }
+
+    if (atualizado) {
+      // Relê do localStorage para não sobrescrever notas adicionadas durante o polling
+      const listaAtual = _getNfseEmitidas();
+      // Aplica as atualizações do polling sobre a lista mais recente
+      const refsRemover = new Set(lista.filter(n => n._remover).map(n => n.ref));
+      const refsAtualizar = {};
+      lista.filter(n => !n._remover && n.status !== 'aguardando').forEach(n => refsAtualizar[n.ref] = n);
+      const listaFinal = listaAtual
+        .filter(n => !refsRemover.has(n.ref))
+        .map(n => refsAtualizar[n.ref] || n);
+      _salvarNfseEmitidas(listaFinal);
+      renderizarNfseEmitidas(listaFinal);
+      atualizarDashboard();
+    }
+
+    // Se ainda há pendentes, agenda próximo polling em 10s
+    const aindaPendente = lista.some(n => n.status === 'aguardando');
+    _nfsePollingAtivo = false;
+    if (aindaPendente) setTimeout(nfsePollarPendentes, 10000);
+  } catch(_) {
+    _nfsePollingAtivo = false;
+  }
+}
+
+// Iniciar polling ao carregar se houver notas aguardando
+document.addEventListener('DOMContentLoaded', () => {
+  const pendentes = _getNfseEmitidas().filter(n => n.status === 'aguardando');
+  if (pendentes.length) setTimeout(nfsePollarPendentes, 5000);
+});
+
+async function cancelarNfse(ref, ambiente) {
+  if (!confirm('Confirma o cancelamento desta NFS-e?')) return;
+  const config   = _getConfig();
+  const tokenKey = ambiente === 'producao' ? 'tokenProducao' : 'tokenHomologacao';
+  const token    = config[tokenKey];
+  if (!token) { alert('Token não configurado.'); return; }
+
+  try {
+    const resp = await fetch('/focus/nfse/cancelar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, ref, config: { ...config, ambiente: ambiente === 'producao' ? 'Produção' : 'Homologação' } }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      const lista = _getNfseEmitidas().map(n => n.ref === ref ? { ...n, status: 'cancelado' } : n);
+      _salvarNfseEmitidas(lista);
+      renderizarNfseEmitidas(lista);
+      alert('NFS-e cancelada com sucesso.');
+    } else {
+      alert('Erro: ' + (data.erro || 'Falha ao cancelar.'));
+    }
+  } catch (err) {
+    alert('Erro: ' + err.message);
+  }
+}
+
+let _nfseAmbienteFiltro = 'todas';
+
+function filtrarNfsePorAmbiente(amb) {
+  _nfseAmbienteFiltro = amb;
+  ['todas','prod','hom'].forEach(k => {
+    const btn = document.getElementById('filtro-nfse-' + k);
+    if (btn) btn.className = 'btn ' + (
+      (k === 'todas' && amb === 'todas') || (k === 'prod' && amb === 'producao') || (k === 'hom' && amb === 'homologacao')
+        ? 'btn-primario' : 'btn-secundario'
+    );
+  });
+  const busca = document.getElementById('input-busca-nfse')?.value || '';
+  filtrarNfseEmitidas(busca);
+}
+
+function filtrarNfseEmitidas(busca) {
+  let lista = _getNfseEmitidas();
+  if (_nfseAmbienteFiltro !== 'todas') lista = lista.filter(n => n.ambiente === _nfseAmbienteFiltro);
+  if (busca) {
+    const q = busca.toLowerCase();
+    lista = lista.filter(n =>
+      (n.numero       || '').toLowerCase().includes(q) ||
+      (n.tomador      || '').toLowerCase().includes(q) ||
+      (n.tomadorDoc   || '').toLowerCase().includes(q) ||
+      (n.discriminacao|| '').toLowerCase().includes(q)
+    );
+  }
+  renderizarNfseEmitidas(lista);
+}
+
+function renderizarNfseEmitidas(lista) {
+  if (!lista) lista = _getNfseEmitidas();
+  const tbody = document.getElementById('tbody-nfse-emitidas');
+  if (!tbody) return;
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--texto-muted);padding:28px">Nenhuma NFS-e encontrada.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(n => {
+    const emissao = n.emissao ? new Date(n.emissao).toLocaleDateString('pt-BR') : '—';
+    const valor   = (n.valor || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+    const badgeCor = n.status === 'autorizado' ? '#d1e7dd;color:#0f5132' : n.status === 'cancelado' ? '#f8d7da;color:#842029' : n.status === 'aguardando' ? '#cfe2ff;color:#084298' : '#fff3cd;color:#856404';
+    const statusLabel = n.status === 'aguardando' ? '⏳ aguardando' : n.status;
+    const badge = `<span style="padding:3px 10px;border-radius:20px;font-size:12px;background:${badgeCor};font-weight:600">${statusLabel || '—'}</span>`;
+    const ambBadge = n.ambiente === 'producao'
+      ? `<span style="padding:2px 8px;border-radius:12px;font-size:11px;background:#cfe2ff;color:#084298">Produção</span>`
+      : `<span style="padding:2px 8px;border-radius:12px;font-size:11px;background:#fff3cd;color:#856404">Homolog.</span>`;
+    const disc = (n.discriminacao || '').slice(0, 40) + ((n.discriminacao || '').length > 40 ? '…' : '');
+    const acoes = `
+      ${n.pdf_url ? `<button class="btn btn-secundario" style="padding:4px 10px;font-size:12px" onclick="baixarArquivoNfse('${n.pdf_url}','${n.ambiente}')">📄 PDF</button>` : ''}
+      ${n.xml_url ? `<button class="btn btn-secundario" style="padding:4px 10px;font-size:12px" onclick="baixarArquivoNfse('${n.xml_url}','${n.ambiente}')">📎 XML</button>` : ''}
+      ${n.status === 'autorizado' ? `<button class="btn btn-perigo" style="padding:4px 10px;font-size:12px" onclick="cancelarNfse('${n.ref}','${n.ambiente}')">✕ Cancelar</button>` : ''}
+    `;
+    return `<tr>
+      <td>${n.numero || '—'}</td>
+      <td title="${n.tomadorDoc || ''}">${n.tomador || '—'}</td>
+      <td>${emissao}</td>
+      <td title="${n.discriminacao || ''}">${disc}</td>
+      <td>${valor}</td>
+      <td>${ambBadge}</td>
+      <td>${badge}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">${acoes}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function baixarArquivoNfse(fileUrl, ambiente) {
+  const config   = _getConfig();
+  const tokenKey = ambiente === 'producao' ? 'tokenProducao' : 'tokenHomologacao';
+  const token    = config[tokenKey] || '';
+  const proxUrl  = `/focus/download?url=${encodeURIComponent(fileUrl)}&token=${encodeURIComponent(token)}`;
+  window.open(proxUrl, '_blank');
+}
+
+// Carregar NFS-e ao inicializar
+document.addEventListener('DOMContentLoaded', () => {
+  renderizarNfseEmitidas(_getNfseEmitidas());
+});
 
 // ── CRUD Usuários ──
 function renderizarUsuarios() {
@@ -4379,9 +4976,10 @@ function livroExportarListaExcel() {
   mostrarToast('📥', 'Excel exportado!');
 }
 
-async function _baixarArquivoFocus(urlFocus, nomeArquivo) {
-  const cfg   = JSON.parse(localStorage.getItem('techstore-config') || '{}');
-  const token = cfg['cfg-focus-token'] || '';
+async function _baixarArquivoFocus(urlFocus, nomeArquivo, ambienteNota) {
+  const cfgFull = _getConfig();
+  const isProd  = (ambienteNota || '').toLowerCase().includes('prod');
+  const token   = isProd ? cfgFull.tokenProducao : cfgFull.tokenHomologacao;
   const resp  = await fetch(`/focus/download?url=${encodeURIComponent(urlFocus)}&token=${encodeURIComponent(token)}`);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return await resp.blob();
@@ -4562,9 +5160,10 @@ async function cancelarNFe(idx) {
 
   if (!confirm(`Confirma o CANCELAMENTO da NF-e ${nota.numero}?\n\nEsta ação é irreversível.`)) return;
 
-  const cfg   = JSON.parse(localStorage.getItem('techstore-config') || '{}');
-  const token = cfg['cfg-focus-token'] || '';
-  const configCancel = { ambiente: cfg['cfg-sefaz-amb'] || nota.ambiente || 'Homologação (teste)' };
+  const cfgFull = _getConfig();
+  const isProdCancel = (nota.ambiente || '').toLowerCase().includes('prod');
+  const token   = isProdCancel ? cfgFull.tokenProducao : cfgFull.tokenHomologacao;
+  const configCancel = { ambiente: nota.ambiente || 'Homologação (teste)' };
   if (!token) { alert('Token Focus NFe não configurado. Acesse Configurações → Parâmetros NF-e.'); return; }
 
   try {
@@ -4959,13 +5558,151 @@ function imprimirDanfe(idxOuNota) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════════════════
+function atualizarDashboard() {
+  const agora   = new Date();
+  const anoMes  = `${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,'0')}`;
+  const fmtBRL  = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+
+  // Produtos ativos
+  try {
+    const prods = JSON.parse(localStorage.getItem('techstore-produtos') || '[]');
+    const ativos = prods.filter(p => p.status !== 'inativo');
+    const el = document.getElementById('dash-produtos');
+    if (el) el.textContent = ativos.length;
+    const varEl = document.getElementById('dash-produtos-var');
+    if (varEl) varEl.textContent = `${prods.length} no total`;
+
+    // Tabela de produtos
+    const tbody = document.getElementById('dash-tbody-produtos');
+    if (tbody) {
+      if (!ativos.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--texto-muted);padding:20px">Nenhum produto cadastrado.</td></tr>`;
+      } else {
+        tbody.innerHTML = ativos.slice(0, 8).map(p => {
+          const preco = parseFloat(p.precoVenda || p.preco || 0);
+          const estq  = parseInt(p.estoque || 0);
+          const badge = estq > 0
+            ? `<span style="padding:2px 8px;border-radius:12px;font-size:11px;background:#d1e7dd;color:#0f5132;font-weight:600">Ativo</span>`
+            : `<span style="padding:2px 8px;border-radius:12px;font-size:11px;background:#f8d7da;color:#842029;font-weight:600">Sem estoque</span>`;
+          return `<tr>
+            <td>${p.nome || p.descricao || '—'}</td>
+            <td>${fmtBRL(preco)}</td>
+            <td style="text-align:center">${estq}</td>
+            <td>${badge}</td>
+          </tr>`;
+        }).join('');
+      }
+    }
+  } catch(e) {}
+
+  // helpers compartilhados
+  const isProdNfe  = n => /prod/i.test(n.ambiente || '');
+  const isProdNfse = n => (n.ambiente || '') === 'producao';
+  const isValNfe   = n => /^autoriz/i.test(n.status || '') && isProdNfe(n);
+  const isValNfse  = n => (n.status || '') === 'autorizado'  && isProdNfse(n);
+  const dataNfe    = n => (n.dhEmi || n.emissao || '').slice(0, 7);
+  const dataNfse   = n => (n.emissao || '').slice(0, 7);
+
+  // Vendas no mês (NF-e autorizadas em produção no mês corrente)
+  try {
+    const notas  = JSON.parse(localStorage.getItem('techstore-notas-emitidas') || '[]');
+    const doMes  = notas.filter(n => isValNfe(n) && dataNfe(n) === anoMes);
+    const totalMes = doMes.reduce((s, n) => s + parseFloat(n.total || n.valor || n.totalNota || 0), 0);
+    const el = document.getElementById('dash-vendas');
+    if (el) el.textContent = fmtBRL(totalMes);
+    const varEl = document.getElementById('dash-vendas-var');
+    if (varEl) varEl.textContent = `${doMes.length} NF-e no mês`;
+  } catch(e) {}
+
+  // Notas emitidas no mês (NF-e + NFS-e — produção, não canceladas)
+  try {
+    const nfe  = JSON.parse(localStorage.getItem('techstore-notas-emitidas') || '[]');
+    const nfse = JSON.parse(localStorage.getItem('techstore-nfse-emitidas') || '[]');
+    const nfeMes  = nfe.filter(n => isValNfe(n)  && dataNfe(n)  === anoMes).length;
+    const nfseMes = nfse.filter(n => isValNfse(n) && dataNfse(n) === anoMes).length;
+    const el = document.getElementById('dash-notas');
+    if (el) el.textContent = nfeMes + nfseMes;
+    const varEl = document.getElementById('dash-notas-var');
+    if (varEl) varEl.textContent = `${nfeMes} NF-e · ${nfseMes} NFS-e`;
+
+    // Painel de notas recentes — só produção, não canceladas, últimas 6
+    const todas = [
+      ...nfe.filter(n => isValNfe(n)).map(n => ({
+        tipo:     'NF-e',
+        numero:   n.numero   || '—',
+        tomador:  n.destNome || '—',
+        valor:    parseFloat(n.total || 0),
+        ambiente: 'producao',
+        status:   (n.status  || '').toLowerCase(),
+        data:     n.dhEmi    || n.emissao || '',
+      })),
+      ...nfse.filter(n => isValNfse(n)).map(n => ({
+        tipo:     'NFS-e',
+        numero:   n.numero   || '—',
+        tomador:  n.tomador  || '—',
+        valor:    parseFloat(n.valor || 0),
+        ambiente: 'producao',
+        status:   n.status   || '—',
+        data:     n.emissao  || '',
+      })),
+    ].sort((a, b) => new Date(b.data||0) - new Date(a.data||0)).slice(0, 6);
+
+    const painel = document.getElementById('dash-notas-recentes');
+    if (painel) {
+      if (!todas.length) {
+        painel.innerHTML = `<div style="text-align:center;color:var(--texto-muted);padding:20px">Nenhuma nota emitida ainda.</div>`;
+      } else {
+        painel.innerHTML = todas.map(n => {
+          const data = n.data ? new Date(n.data).toLocaleDateString('pt-BR') : '—';
+
+          const tipoBadge = n.tipo === 'NFS-e'
+            ? `<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:#cfe2ff;color:#084298;font-weight:700">NFS-e</span>`
+            : `<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:#d1e7dd;color:#0f5132;font-weight:700">NF-e</span>`;
+
+          const ambBadge = n.ambiente === 'producao'
+            ? `<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:#e2e3e5;color:#41464b;font-weight:600">Produção</span>`
+            : `<span style="font-size:10px;padding:1px 7px;border-radius:8px;background:#fff3cd;color:#856404;font-weight:600">Homolog.</span>`;
+
+          const statusCor = n.status.includes('autoriz') ? '#0f5132' : n.status.includes('cancel') ? '#842029' : '#856404';
+
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--borda)">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;flex-wrap:wrap">
+                ${tipoBadge}
+                <span style="font-weight:700;font-size:13px">Nº ${n.numero}</span>
+                ${ambBadge}
+              </div>
+              <div style="font-size:11px;color:var(--texto-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                ${(n.tomador).slice(0,28)} · ${data} · <span style="color:${statusCor};font-weight:600">${n.status}</span>
+              </div>
+            </div>
+            <div style="font-weight:700;font-size:13px;margin-left:10px;white-space:nowrap">${fmtBRL(n.valor)}</div>
+          </div>`;
+        }).join('');
+      }
+    }
+  } catch(e) {}
+
+  // Clientes
+  try {
+    const clientes = JSON.parse(localStorage.getItem('techstore-clientes') || '[]');
+    const el = document.getElementById('dash-clientes');
+    if (el) el.textContent = clientes.length;
+    const varEl = document.getElementById('dash-clientes-var');
+    if (varEl) varEl.textContent = clientes.length === 1 ? '1 cliente' : `${clientes.length} cadastrados`;
+  } catch(e) {}
+}
+
 // ── INICIALIZAÇÃO ──
 // ══════════════════════════════════════════════════════════════════
 // SINCRONIZAÇÃO SERVIDOR ↔ LOCALSTORAGE
 // ══════════════════════════════════════════════════════════════════
 const _DB_KEYS = [
   'techstore-config','techstore-produtos','techstore-clientes',
-  'techstore-notas-emitidas','techstore-usuarios','techstore-convites',
+  'techstore-notas-emitidas','techstore-nfse-emitidas','techstore-usuarios','techstore-convites',
   'techstore-cert','techstore-nfe-ultNSU',
 ];
 
@@ -5029,6 +5766,7 @@ if (document.readyState === 'loading') {
   _dbInit();
 }
 document.addEventListener('DOMContentLoaded', renderNotasEmitidas);
+document.addEventListener('DOMContentLoaded', atualizarDashboard);
 </script>
 </body>
 </html>
