@@ -3,7 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="author" content="André Dias Moreira Prol">
+  <meta name="description" content="Sistema web de emissão de NF-e e NFS-e para gestão fiscal. Desenvolvido por André Dias Moreira Prol.">
   <title>Emissor de Notas — Gestão Fiscal</title>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Emissor de Notas",
+        "description": "Sistema web de emissão de NF-e e NFS-e para gestão fiscal. Desenvolvido por André Dias Moreira Prol.",
+        "url": "https://emissor.rjlogisticaetecnologia.com.br",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "author": {
+          "@type": "Person",
+          "name": "André Dias Moreira Prol",
+          "url": "https://github.com/andreprol"
+        }
+      },
+      {
+        "@type": "Person",
+        "name": "André Dias Moreira Prol",
+        "url": "https://github.com/andreprol",
+        "sameAs": ["https://github.com/andreprol"],
+        "jobTitle": "Desenvolvedor de Software",
+        "knowsAbout": ["Desenvolvimento Web", "Sistemas Fiscais", "NF-e", "Node.js"]
+      }
+    ]
+  }
+  </script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d6efd'/><text x='16' y='23' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='15' fill='white' text-anchor='middle' letter-spacing='-0.5'>RJ</text></svg>">
   <style>
     :root {
@@ -5768,5 +5798,8 @@ if (document.readyState === 'loading') {
 document.addEventListener('DOMContentLoaded', renderNotasEmitidas);
 document.addEventListener('DOMContentLoaded', atualizarDashboard);
 </script>
+<footer style="text-align:center;padding:12px;font-size:11px;color:#94a3b8;border-top:1px solid var(--borda);margin-top:8px;">
+  Desenvolvido por <a href="https://github.com/andreprol" rel="author" style="color:#94a3b8;text-decoration:none;" target="_blank">André Dias Moreira Prol</a>
+</footer>
 </body>
 </html>
