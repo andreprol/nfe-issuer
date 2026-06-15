@@ -1957,10 +1957,10 @@
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:8px;letter-spacing:.5px">Ambiente</div>
     <div style="display:flex;gap:20px;align-items:center;margin-bottom:16px">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px">
-        <input type="radio" name="nfe-amb" value="homologacao" checked> Homologação (teste)
+        <input type="radio" name="nfe-amb" value="homologacao"> Homologação (teste)
       </label>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px">
-        <input type="radio" name="nfe-amb" value="producao"> Produção
+        <input type="radio" name="nfe-amb" value="producao" checked> Produção
       </label>
     </div>
 
@@ -4895,11 +4895,35 @@ function exportarRelPDF() {
 }
 
 function exportarRelExcel() {
-  const tabEl = document.getElementById('rel-tabela-dados');
-  if (!tabEl) return;
-  const cfg = _REL_CONFIG[_relAtual];
-  const ws  = XLSX.utils.table_to_sheet(tabEl);
-  const wb  = XLSX.utils.book_new();
+  if (!_relDados || !_relDados.length) return;
+  let data = [];
+  if (_relAtual === 'estoque') {
+    data.push(['SKU','Produto','NCM','Unidade','Preço (R$)','Status']);
+    _relDados.forEach(r => data.push([r.sku, r.nome, r.ncm, r.unidade, r.preco, r.status === 'ativo' ? 'Ativo' : 'Inativo']));
+  } else if (_relAtual === 'vendas') {
+    data.push(['Número','Cliente','Emissão','Natureza','Valor (R$)','Ambiente']);
+    _relDados.forEach(r => data.push([r.numero, r.cliente, r.emissao, r.natureza, r.valor, r.ambiente]));
+  } else if (_relAtual === 'dre') {
+    data.push(['Conta','Valor (R$)']);
+    _relDados.forEach(r => data.push([r.conta, r.valor]));
+  } else if (_relAtual === 'clientes') {
+    data.push(['#','Cliente','CNPJ/CPF','Notas','Total (R$)']);
+    _relDados.forEach(r => data.push([r.pos, r.nome, r.doc, r.qtd, r.total]));
+  } else if (_relAtual === 'abc') {
+    data.push(['#','SKU','Produto','Qtd Vendida','Total (R$)','% Acum.','Classe']);
+    _relDados.forEach(r => data.push([r.pos, r.sku, r.nome, r.qtd, r.total, r.pct+'%', r.classe]));
+  } else {
+    const tabEl = document.getElementById('rel-tabela-dados');
+    if (!tabEl) return;
+    const ws = XLSX.utils.table_to_sheet(tabEl);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+    XLSX.writeFile(wb, `relatorio-${_relAtual}-${new Date().toISOString().slice(0,10)}.xlsx`);
+    mostrarToast('📥', 'Excel exportado!');
+    return;
+  }
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
   XLSX.writeFile(wb, `relatorio-${_relAtual}-${new Date().toISOString().slice(0,10)}.xlsx`);
   mostrarToast('📥', 'Excel exportado!');
