@@ -205,18 +205,11 @@ async function gerarDanfsePdf({ xml, chaveAcesso, ambiente, cancelada, justifica
     let y = MARGEM;
 
     // ── Cabeçalho ──
+    const topoCabecalho = y;
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#2c3e50').text('DANFSe — Documento Auxiliar da NFS-e', MARGEM, y);
     doc.font('Helvetica').fontSize(7.5).fillColor('#666').text('Município: Rio de Janeiro - RJ', MARGEM, y + 15);
-    doc.image(qrBuffer, PAGE_W - MARGEM - 60, y - 2, { width: 60 });
-    y += 30;
-
-    doc.font('Helvetica').fontSize(5.8).fillColor('#a33').text(
-      'Gerado automaticamente a partir do XML assinado pelo SEFIN Nacional — não é o leiaute oficial do Sistema ' +
-      'Nacional NFS-e (API não disponibiliza PDF). Via oficial: confira a chave de acesso em nfse.gov.br/ConsultaPublica.',
-      MARGEM, y, { width: LARGURA_UTIL - 65 }
-    );
-    doc.fillColor('#000');
-    y += 16;
+    doc.image(qrBuffer, PAGE_W - MARGEM - 54, topoCabecalho - 2, { width: 54 });
+    y = topoCabecalho + 56; // limpa a altura do QR antes da caixa da chave
 
     // ── Chave de acesso ──
     doc.rect(MARGEM, y, LARGURA_UTIL, 20).stroke(COR_BORDA);
