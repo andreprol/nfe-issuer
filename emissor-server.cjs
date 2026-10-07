@@ -14,7 +14,7 @@ const path  = require('path');
 const url   = require('url');
 
 // ── NFSe Nacional (SEFIN) — RJ usa sistema federal desde 01/01/2026 ────────────
-const nfseCarioca = require('./nfse-nacional.cjs');
+const nfseNacional = require('./nfse-nacional.cjs');
 
 // ── Focus NFe ─────────────────────────────────────────────────────────────────
 const { FORMA_PAG, CNAE_CTN, montarPayloadFocus, montarPayloadNfse } = require('./utils.cjs');
@@ -429,19 +429,24 @@ if (!fileUrl) { res.writeHead(400); res.end('url obrigatória'); return; }
     return handleFocusNfseConsultar(req, res, ref, token, config);
   }
 
-  // ── NFSe Nota Carioca: /nfse/emitir ──────────────────────────────────────────
+  // ── NFSe Nacional: /nfse/emitir ──────────────────────────────────────────────
   if (req.method === 'POST' && pathname === '/nfse/emitir') {
-    return nfseCarioca.handleEmitir(req, res);
+    return nfseNacional.handleEmitir(req, res);
   }
 
-  // ── NFSe Nota Carioca: /nfse/consultar?chaveAcesso=...&ambiente=... ──────────
+  // ── NFSe Nacional: /nfse/consultar?chaveAcesso=...&ambiente=... ──────────────
   if (req.method === 'GET' && pathname === '/nfse/consultar') {
-    return nfseCarioca.handleConsultar(req, res, parsed);
+    return nfseNacional.handleConsultar(req, res, parsed);
   }
 
-  // ── NFSe Nota Carioca: /nfse/cancelar ────────────────────────────────────────
+  // ── NFSe Nacional: /nfse/cancelar ────────────────────────────────────────────
   if (req.method === 'POST' && pathname === '/nfse/cancelar') {
-    return nfseCarioca.handleCancelar(req, res);
+    return nfseNacional.handleCancelar(req, res);
+  }
+
+  // ── NFSe Nacional: /nfse/xml?chaveAcesso=...&ambiente=... (download do XML) ──
+  if (req.method === 'GET' && pathname === '/nfse/xml') {
+    return nfseNacional.handleBaixarXml(req, res, parsed);
   }
 
   // ── Ping Focus NFe ──

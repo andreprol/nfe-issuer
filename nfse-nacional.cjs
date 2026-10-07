@@ -22,14 +22,15 @@ const { SignedXml } = require('xml-crypto');
 const DATA_DIR = path.join(__dirname, 'data');
 const SEQ_FILE = path.join(DATA_DIR, 'nfse-nacional-seq.json');
 
-// Endpoints de emissão (requer mTLS + XMLDSig)
+// Emissão E consulta são no MESMO host SEFIN (não ADN) — confirmado contra o
+// "Manual dos Contribuintes - Sistema Nacional NFS-e" (gov.br/nfse), seção
+// "1.3 API NFS-e": POST /nfse (emissão), GET /nfse/{chaveAcesso} (consulta),
+// POST /nfse/{chaveAcesso}/eventos (cancelamento). A tentativa original (06/07)
+// de consultar via adn.nfse.gov.br/contribuintes/v1/nfse/{chave} dava 404 —
+// host e path errados, nunca confirmados contra a documentação oficial.
 const SEFIN_PROD_HOST = 'sefin.nfse.gov.br';
 const SEFIN_HOM_HOST  = 'sefin.producaorestrita.nfse.gov.br';
 const SEFIN_PATH      = '/SefinNacional/nfse';
-
-// Endpoints de consulta (requer mTLS)
-const ADN_PROD_HOST   = 'adn.nfse.gov.br';
-const ADN_HOM_HOST    = 'adn.producaorestrita.nfse.gov.br';
 
 const NS_NFSE = 'http://www.sped.fazenda.gov.br/nfse';
 
@@ -127,6 +128,17 @@ function lerCorpoReq(req) {
 function respJson(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));
+}
+
+// Resposta de emissão/consulta do SEFIN só traz chaveAcesso + nfseXmlGZipB64 —
+// nNFSe (número) e cStat (100=autorizado) vêm de dentro do XML assinado, não
+// como campos soltos no JSON. Extrai os dois sem precisar de parser XML completo.
+function decodificarNfseXml(gzipB64) {
+  if (!gzipB64) return { xml: null, numero: null, cStat: null };
+  const xml    = zlib.gunzipSync(Buffer.from(gzipB64, 'base64')).toString('utf8');
+  const numero = (xml.match(/<nNFSe>(\d+)<\/nNFSe>/) || [])[1] || null;
+  const cStat  = (xml.match(/<cStat>(\d+)<\/cStat>/) || [])[1] || null;
+  return { xml, numero, cStat };
 }
 
 function lerConfigEmpresa() {
@@ -398,10 +410,12 @@ async function handleEmitir(req, res) {
     console.log(`[NFSe Nacional] Resposta HTTP ${status}:`, JSON.stringify(body).slice(0, 400));
 
     if (status === 200 || status === 201) {
+      let numero = null;
+      try { ({ numero } = decodificarNfseXml(body.nfseXmlGZipB64)); } catch (e) { console.error('[NFSe Nacional] falha ao decodificar XML da resposta:', e.message); }
       return respJson(res, 200, {
         ok:          true,
         chaveAcesso: body.chaveAcesso || body.chNFSe   || body.chave  || null,
-        numero:      body.nNFSe       || body.numero    || null,
+        numero:      numero           || body.nNFSe     || body.numero || null,
         status:      body.status      || 'autorizado',
         ambiente,
         nDPS,
@@ -438,14 +452,14 @@ async function handleConsultar(req, res, parsed) {
     const cert = certLoader();
     if (!cert) return respJson(res, 400, { ok: false, erro: 'Certificado digital não configurado.' });
 
-    const adnHost  = ambiente === 'producao' ? ADN_PROD_HOST : ADN_HOM_HOST;
-    const adnPath  = `/contribuintes/v1/nfse/${encodeURIComponent(chaveAcesso)}`;
+    const sefinHost = ambiente === 'producao' ? SEFIN_PROD_HOST : SEFIN_HOM_HOST;
+    const reqPath   = `${SEFIN_PATH}/${encodeURIComponent(chaveAcesso)}`;
 
     console.log(`[NFSe Nacional consultar] ${chaveAcesso.slice(0, 12)}... em ${ambiente}`);
 
     const { status, body } = await mtlsRequest({
-      host:       adnHost,
-      reqPath:    adnPath,
+      host:       sefinHost,
+      reqPath,
       method:     'GET',
       pfxBuffer:  cert.pfxBuffer,
       passphrase: cert.passphrase,
@@ -454,13 +468,15 @@ async function handleConsultar(req, res, parsed) {
     console.log(`[NFSe Nacional consultar] HTTP ${status}`);
 
     if (status === 200) {
+      let numero = null, cStat = null;
+      try { ({ numero, cStat } = decodificarNfseXml(body.nfseXmlGZipB64)); } catch (e) { console.error('[NFSe Nacional consultar] falha ao decodificar XML:', e.message); }
       return respJson(res, 200, {
         ok:          true,
         chaveAcesso,
-        numero:      body.nNFSe      || body.numero    || null,
-        status:      body.status     || 'autorizado',
-        pdf_url:     body.urlDanfse  || body.caminhoPdf || null,
-        xml_url:     body.caminhoXml || null,
+        numero,
+        // cStat 100 = autorizada. Eventos (cancelamento etc.) não aparecem aqui —
+        // GET /nfse/{chave}/eventos consultaria isso separadamente se precisarmos.
+        status:      cStat === '100' ? 'autorizado' : 'processando',
         detalhe:     body,
       });
     }
@@ -491,15 +507,15 @@ async function handleCancelar(req, res) {
     const cert = certLoader();
     if (!cert) return respJson(res, 400, { ok: false, erro: 'Certificado digital não configurado.' });
 
-    const ambiente = (config?.ambiente || '').toLowerCase().includes('produ') ? 'producao' : 'homologacao';
-    const adnHost  = ambiente === 'producao' ? ADN_PROD_HOST : ADN_HOM_HOST;
-    const adnPath  = `/contribuintes/v1/nfse/${encodeURIComponent(chaveAcesso)}/eventos`;
+    const ambiente  = (config?.ambiente || '').toLowerCase().includes('produ') ? 'producao' : 'homologacao';
+    const sefinHost = ambiente === 'producao' ? SEFIN_PROD_HOST : SEFIN_HOM_HOST;
+    const reqPath   = `${SEFIN_PATH}/${encodeURIComponent(chaveAcesso)}/eventos`;
 
     console.log(`[NFSe Nacional cancelar] ${chaveAcesso.slice(0, 12)}... em ${ambiente}`);
 
     const { status, body } = await mtlsRequest({
-      host:       adnHost,
-      reqPath:    adnPath,
+      host:       sefinHost,
+      reqPath,
       method:     'POST',
       bodyObj:    { tpEvento: '1', xJust: justificativa.trim() },
       pfxBuffer:  cert.pfxBuffer,
@@ -524,6 +540,51 @@ async function handleCancelar(req, res) {
   }
 }
 
+// ── handleBaixarXml: GET /nfse/xml?chaveAcesso=...&ambiente=... ────────────────
+// SEFIN não tem endpoint de DANFSe (PDF) nem hospeda arquivo — só devolve o XML
+// assinado via consulta. Decodifica na hora e manda como download, sem guardar
+// cópia em disco (consulta é rápida e sempre reflete o estado atual no gov).
+
+async function handleBaixarXml(req, res, parsed) {
+  try {
+    const qs          = new URLSearchParams(parsed?.query || '');
+    const chaveAcesso = qs.get('chaveAcesso');
+    const ambiente    = (qs.get('ambiente') || 'homologacao').toLowerCase().includes('produ') ? 'producao' : 'homologacao';
+
+    if (!chaveAcesso) { res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Parâmetro "chaveAcesso" obrigatório.'); }
+
+    const cert = certLoader();
+    if (!cert) { res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Certificado digital não configurado.'); }
+
+    const sefinHost = ambiente === 'producao' ? SEFIN_PROD_HOST : SEFIN_HOM_HOST;
+    const { status, body } = await mtlsRequest({
+      host:       sefinHost,
+      reqPath:    `${SEFIN_PATH}/${encodeURIComponent(chaveAcesso)}`,
+      method:     'GET',
+      pfxBuffer:  cert.pfxBuffer,
+      passphrase: cert.passphrase,
+    });
+
+    if (status !== 200 || !body?.nfseXmlGZipB64) {
+      res.writeHead(status === 404 ? 404 : 502, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end(status === 404 ? 'NFS-e não encontrada.' : `Consulta retornou ${status}: ${extrairErro(body)}`);
+    }
+
+    const xml = zlib.gunzipSync(Buffer.from(body.nfseXmlGZipB64, 'base64'));
+    res.writeHead(200, {
+      'Content-Type':        'application/xml; charset=utf-8',
+      'Content-Disposition': `attachment; filename="NFSe_${chaveAcesso}.xml"`,
+      'Content-Length':      xml.length,
+    });
+    res.end(xml);
+
+  } catch (err) {
+    console.error('[NFSe Nacional handleBaixarXml]', err.message);
+    res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Erro ao baixar XML: ' + err.message);
+  }
+}
+
 // ── Helpers internos ─────────────────────────────────────────────────────────
 
 function extrairErro(body) {
@@ -538,4 +599,4 @@ function extrairErro(body) {
 
 // ── Exports ──────────────────────────────────────────────────────────────────
 
-module.exports = { handleEmitir, handleConsultar, handleCancelar };
+module.exports = { handleEmitir, handleConsultar, handleCancelar, handleBaixarXml };
