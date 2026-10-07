@@ -1,6 +1,6 @@
 'use strict';
 
-const { FORMA_PAG, CNAE_CTN, selecionarAmbiente, montarPayloadFocus, montarPayloadNfse } = require('./utils.cjs');
+const { FORMA_PAG, CNAE_CTN, selecionarAmbiente, montarPayloadFocus, montarPayloadNfse, mesAnoLocal } = require('./utils.cjs');
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -223,5 +223,26 @@ describe('montarPayloadNfse', () => {
   it('email_tomador ausente quando tomador não tem email', () => {
     const { payload } = montarPayloadNfse(dadosNfseBase, configBase);
     expect(payload.email_tomador).toBeUndefined();
+  });
+});
+
+describe('mesAnoLocal', () => {
+  // Processo roda em America/Sao_Paulo (BRT, UTC-3, sem horário de verão).
+
+  it('dhEmi dentro do dia em BRT → mesmo mês em UTC', () => {
+    expect(mesAnoLocal('2026-10-01T16:59:41.699Z')).toBe('2026-10');
+  });
+
+  it('dhEmi 00h-03h UTC (21h-00h BRT da véspera) → mês anterior, não o mês UTC', () => {
+    // Caso real do dashboard: nota emitida 30/set 21:28 BRT ficou gravada
+    // como 2026-10-01T01:28 UTC — slice(0,7) errava pra outubro.
+    expect(mesAnoLocal('2026-10-01T01:28:45.485Z')).toBe('2026-09');
+    expect(mesAnoLocal('2026-10-01T00:53:48.618Z')).toBe('2026-09');
+  });
+
+  it('string vazia ou inválida → string vazia', () => {
+    expect(mesAnoLocal('')).toBe('');
+    expect(mesAnoLocal(undefined)).toBe('');
+    expect(mesAnoLocal('não-é-data')).toBe('');
   });
 });

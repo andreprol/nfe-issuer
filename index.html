@@ -5657,12 +5657,19 @@ function atualizarDashboard() {
   } catch(e) {}
 
   // helpers compartilhados
+  // Ano-mês no fuso local — slice(0,7) direto no ISO UTC errava o mês para
+  // notas emitidas entre 21h-23h59 BRT (viram 00h-02h59 UTC do dia seguinte).
+  const mesAnoLocal = iso => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  };
   const isProdNfe  = n => /prod/i.test(n.ambiente || '');
   const isProdNfse = n => (n.ambiente || '') === 'producao';
   const isValNfe   = n => /^autoriz/i.test(n.status || '') && isProdNfe(n);
   const isValNfse  = n => (n.status || '') === 'autorizado'  && isProdNfse(n);
-  const dataNfe    = n => (n.dhEmi || n.emissao || '').slice(0, 7);
-  const dataNfse   = n => (n.emissao || '').slice(0, 7);
+  const dataNfe    = n => mesAnoLocal(n.dhEmi || n.emissao);
+  const dataNfse   = n => mesAnoLocal(n.emissao);
 
   // Vendas no mês (NF-e autorizadas em produção no mês corrente)
   try {

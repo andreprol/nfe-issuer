@@ -20,6 +20,16 @@ function selecionarAmbiente(ambienteStr) {
   return (ambienteStr || '').includes('Produção') ? 'producao' : 'homologacao';
 }
 
+// Ano-mês no fuso local a partir de um timestamp ISO (UTC ou com offset).
+// slice(0,7) direto na string UTC erra o mês para notas emitidas entre
+// 21h-23h59 BRT (viram 00h-02h59 UTC do dia seguinte).
+function mesAnoLocal(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function montarPayloadFocus(dados, config) {
   const { nNF, naturezaOp, tpNF, cliente, itens, pagamento, infAdicional } = dados;
   const cnpjLimpo    = (config.cnpj || '').replace(/\D/g, '');
@@ -150,4 +160,4 @@ function montarPayloadNfse(dados, config) {
   return { payload, ref };
 }
 
-module.exports = { FORMA_PAG, CNAE_CTN, selecionarAmbiente, montarPayloadFocus, montarPayloadNfse };
+module.exports = { FORMA_PAG, CNAE_CTN, selecionarAmbiente, montarPayloadFocus, montarPayloadNfse, mesAnoLocal };
