@@ -5202,8 +5202,11 @@ function _adicionarLinhaNotaEmitida(nota) {
   tr.dataset.cliente  = nota.destNome || '';
   tr.dataset.cnpj     = nota.destDoc  || '';
   tr.dataset.ambiente = nota.ambiente || '';
+  tr.style.cursor = 'pointer';
+  tr.title = 'Clique para ver os produtos desta nota';
+  tr.onclick = ev => toggleItensNotaNFe(idx, ev);
   tr.innerHTML = `
-    <td style="font-weight:600">${nota.numero}</td>
+    <td style="font-weight:600">${nota.numero} <span id="chevron-${idx}" style="color:var(--texto-muted);font-size:11px">▸</span></td>
     <td>${nota.destNome||'—'}</td>
     <td>${dt}</td>
     <td style="color:var(--texto-muted);font-size:13px">${nota.natureza||'—'}</td>
@@ -5220,6 +5223,61 @@ function _adicionarLinhaNotaEmitida(nota) {
       </button>` : ''}
     </td>`;
   tbody.prepend(tr);
+}
+
+// Clique na linha (fora dos botões de ação) expande/recolhe os produtos da nota.
+function toggleItensNotaNFe(idx, ev) {
+  if (ev && ev.target.closest('button')) return;
+
+  const nota = window._notasEmitidas[idx];
+  if (!nota) return;
+  const tr = document.getElementById(`linha-nota-${nota.focusRef || nota.numero}`);
+  if (!tr) return;
+
+  const detalheId = tr.id + '-itens';
+  const existente = document.getElementById(detalheId);
+  const chevron = document.getElementById(`chevron-${idx}`);
+  if (existente) {
+    existente.remove();
+    if (chevron) chevron.textContent = '▸';
+    return;
+  }
+  if (chevron) chevron.textContent = '▾';
+
+  const vFmt = v => parseFloat(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const itens = nota.itens || [];
+  const linhas = itens.length
+    ? itens.map(it => `
+        <tr>
+          <td style="padding:5px 8px">${it.sku || '—'}</td>
+          <td style="padding:5px 8px">${it.nome || '—'}</td>
+          <td style="padding:5px 8px">${it.ncm || '—'}</td>
+          <td style="padding:5px 8px;text-align:center">${it.qCom || 1} ${it.unidade || 'UN'}</td>
+          <td style="padding:5px 8px;text-align:right">${vFmt(it.vUnCom)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:600">${vFmt(it.vProd)}</td>
+        </tr>`).join('')
+    : `<tr><td colspan="6" style="text-align:center;color:var(--texto-muted);padding:10px">Nenhum item registrado nesta nota.</td></tr>`;
+
+  const detalheTr = document.createElement('tr');
+  detalheTr.id = detalheId;
+  detalheTr.innerHTML = `
+    <td colspan="7" style="background:#f8f9fa;padding:10px 16px 14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:6px;letter-spacing:.5px">Produtos desta nota</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead>
+          <tr style="color:var(--texto-muted);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--borda)">
+            <th style="text-align:left;padding:5px 8px">SKU</th>
+            <th style="text-align:left;padding:5px 8px">Produto</th>
+            <th style="text-align:left;padding:5px 8px">NCM</th>
+            <th style="text-align:center;padding:5px 8px">Qtd</th>
+            <th style="text-align:right;padding:5px 8px">Vlr. Unit.</th>
+            <th style="text-align:right;padding:5px 8px">Vlr. Total</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </td>`;
+  tr.insertAdjacentElement('afterend', detalheTr);
 }
 
 function renderNotasEmitidas() {
