@@ -56,6 +56,7 @@ function extrairDadosNfse(xml) {
     xTribMun:  tag(infNFSe, 'xTribMun'),
     xNBS:      tag(infNFSe, 'xNBS'),
     vLiq:      tag(valoresN, 'vLiq'),
+    cLocIncid: tag(infNFSe, 'cLocIncid'),
 
     emitCnpj:   tag(emit, 'CNPJ'),
     emitNome:   tag(emit, 'xNome'),
@@ -128,26 +129,71 @@ function fmtEnd(lgr, nro, bairro) {
   return partes.length ? partes.join(', ') : '-';
 }
 
-// ── Desenho do PDF ───────────────────────────────────────────────────────────
+// ── Desenho do PDF — grid com bordas, no estilo do DANFSe oficial (conferido
+// contra as 3 NFS-e reais da DVC: barras de seção escuras, linhas e colunas
+// com borda fina, label pequeno em cima do valor dentro de cada célula) ──────
 
-const MARGEM = 36;
-const LARGURA_UTIL = 595.28 - MARGEM * 2;
+const PAGE_W   = 595.28;
+const PAGE_H   = 841.89;
+const MARGEM   = 32;
+const LARGURA_UTIL = PAGE_W - MARGEM * 2;
+const COR_SECAO = '#2c3e50';
+const COR_BORDA = '#999';
+const COR_DIV   = '#ccc';
 
-function sectionTitle(doc, y, text) {
-  doc.rect(MARGEM, y, LARGURA_UTIL, 16).fill('#2c3e50');
-  doc.fillColor('#fff').font('Helvetica-Bold').fontSize(8).text(text, MARGEM + 6, y + 4);
-  doc.fillColor('#000');
-  return y + 16;
+function ensureSpace(doc, y, altura) {
+  if (y + altura > PAGE_H - MARGEM) {
+    doc.addPage();
+    return MARGEM;
+  }
+  return y;
 }
 
-function field(doc, x, y, w, label, value) {
-  doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#555').text(label, x, y, { width: w });
-  doc.font('Helvetica').fontSize(8.5).fillColor('#000').text(value || '-', x, y + 9, { width: w });
+function sectionTitle(doc, y, text) {
+  y = ensureSpace(doc, y, 14);
+  doc.rect(MARGEM, y, LARGURA_UTIL, 13).fill(COR_SECAO);
+  doc.fillColor('#fff').font('Helvetica-Bold').fontSize(6.8).text(text, MARGEM + 5, y + 3.5);
+  doc.fillColor('#000');
+  return y + 13;
+}
+
+// cells: [{ label, value, w }] — w é fração de 1 (a soma das frações de uma
+// linha deve dar 1). Desenha borda externa + divisórias internas + label
+// pequeno/valor, com altura calculada pelo texto mais alto da linha.
+function row(doc, y, cells) {
+  const widths  = cells.map(c => c.w * LARGURA_UTIL);
+  const padX    = 4;
+  doc.font('Helvetica').fontSize(7.5);
+  const alturas = cells.map((c, i) => doc.heightOfString(String(c.value ?? '-'), { width: widths[i] - padX * 2 }));
+  const altura  = Math.max(18, 9 + Math.max(...alturas));
+
+  y = ensureSpace(doc, y, altura);
+
+  doc.rect(MARGEM, y, LARGURA_UTIL, altura).stroke(COR_BORDA);
+  let x = MARGEM;
+  cells.forEach((c, i) => {
+    const w = widths[i];
+    if (i > 0) doc.moveTo(x, y).lineTo(x, y + altura).stroke(COR_DIV);
+    doc.font('Helvetica-Bold').fontSize(5.6).fillColor('#666').text(c.label, x + padX, y + 2.5, { width: w - padX * 2 });
+    doc.font('Helvetica').fontSize(7.5).fillColor('#000').text(String(c.value ?? '-'), x + padX, y + 9.5, { width: w - padX * 2 });
+    x += w;
+  });
+
+  return y + altura;
+}
+
+function staticLine(doc, y, text) {
+  const altura = 13;
+  y = ensureSpace(doc, y, altura);
+  doc.rect(MARGEM, y, LARGURA_UTIL, altura).stroke(COR_BORDA);
+  doc.font('Helvetica-Oblique').fontSize(6.8).fillColor('#777').text(text, MARGEM + 4, y + 3, { width: LARGURA_UTIL - 8 });
+  doc.fillColor('#000');
+  return y + altura;
 }
 
 async function gerarDanfsePdf({ xml, chaveAcesso, ambiente, cancelada, justificativaCancelamento }) {
   const d = extrairDadosNfse(xml);
-  const qrBuffer = await QRCode.toBuffer(chaveAcesso, { type: 'png', width: 100, margin: 1 });
+  const qrBuffer = await QRCode.toBuffer(chaveAcesso, { type: 'png', width: 72, margin: 1 });
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: MARGEM });
@@ -159,130 +205,186 @@ async function gerarDanfsePdf({ xml, chaveAcesso, ambiente, cancelada, justifica
     let y = MARGEM;
 
     // ── Cabeçalho ──
-    doc.font('Helvetica-Bold').fontSize(13).fillColor('#2c3e50').text('DANFSe — Documento Auxiliar da NFS-e', MARGEM, y);
-    doc.font('Helvetica').fontSize(8).fillColor('#666').text('Município: Rio de Janeiro - RJ   •   Sistema Nacional NFS-e', MARGEM, y + 17);
-    doc.image(qrBuffer, 595.28 - MARGEM - 70, y - 4, { width: 70 });
-    y += 36;
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#2c3e50').text('DANFSe — Documento Auxiliar da NFS-e', MARGEM, y);
+    doc.font('Helvetica').fontSize(7.5).fillColor('#666').text('Município: Rio de Janeiro - RJ', MARGEM, y + 15);
+    doc.image(qrBuffer, PAGE_W - MARGEM - 60, y - 2, { width: 60 });
+    y += 30;
 
-    doc.font('Helvetica').fontSize(7).fillColor('#a33').text(
-      'Documento gerado automaticamente a partir do XML assinado pelo SEFIN Nacional — não é o leiaute oficial do ' +
-      'Sistema Nacional NFS-e (que não disponibiliza PDF via API). Para a via oficial, consulte a chave de acesso ' +
-      'abaixo em nfse.gov.br/ConsultaPublica.',
-      MARGEM, y, { width: LARGURA_UTIL - 80 }
+    doc.font('Helvetica').fontSize(5.8).fillColor('#a33').text(
+      'Gerado automaticamente a partir do XML assinado pelo SEFIN Nacional — não é o leiaute oficial do Sistema ' +
+      'Nacional NFS-e (API não disponibiliza PDF). Via oficial: confira a chave de acesso em nfse.gov.br/ConsultaPublica.',
+      MARGEM, y, { width: LARGURA_UTIL - 65 }
     );
     doc.fillColor('#000');
-    y += 30;
+    y += 16;
 
     // ── Chave de acesso ──
-    doc.rect(MARGEM, y, LARGURA_UTIL, 22).stroke('#999');
-    doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#555').text('CHAVE DE ACESSO DA NFS-e', MARGEM + 6, y + 3);
-    doc.font('Courier').fontSize(10).fillColor('#000').text(chaveAcesso, MARGEM + 6, y + 11);
-    y += 30;
+    doc.rect(MARGEM, y, LARGURA_UTIL, 20).stroke(COR_BORDA);
+    doc.font('Helvetica-Bold').fontSize(5.6).fillColor('#666').text('CHAVE DE ACESSO DA NFS-e', MARGEM + 4, y + 2.5);
+    doc.font('Courier').fontSize(8.5).fillColor('#000').text(chaveAcesso, MARGEM + 4, y + 10);
+    y += 24;
 
     if (cancelada) {
-      doc.rect(MARGEM, y, LARGURA_UTIL, 16).fill('#f8d7da');
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#842029').text('⚠ NFS-e CANCELADA' + (justificativaCancelamento ? ` — ${justificativaCancelamento}` : ''), MARGEM + 6, y + 4);
+      y = ensureSpace(doc, y, 14);
+      doc.rect(MARGEM, y, LARGURA_UTIL, 14).fill('#f8d7da');
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#842029').text('⚠ NFS-e CANCELADA' + (justificativaCancelamento ? ` — ${justificativaCancelamento}` : ''), MARGEM + 5, y + 3);
       doc.fillColor('#000');
-      y += 22;
+      y += 18;
     }
 
-    // ── Linha: número / competência / emissão ──
-    const col3 = LARGURA_UTIL / 3;
-    field(doc, MARGEM,            y, col3, 'NÚMERO DA NFS-e',                d.numero || '-');
-    field(doc, MARGEM + col3,     y, col3, 'COMPETÊNCIA DA NFS-e',           fmtData(d.dCompet));
-    field(doc, MARGEM + col3 * 2, y, col3, 'DATA E HORA DA EMISSÃO',         fmtDataHora(d.dhProc));
-    y += 24;
-    field(doc, MARGEM,            y, col3, 'NÚMERO DA DPS',                  d.nDPS || '-');
-    field(doc, MARGEM + col3,     y, col3, 'SÉRIE DA DPS',                   d.serie || '-');
-    field(doc, MARGEM + col3 * 2, y, col3, 'SITUAÇÃO',                       cancelada ? 'Cancelada' : (d.cStat === '100' ? 'NFS-e Gerada' : d.cStat || '-'));
-    y += 24;
-    field(doc, MARGEM,            y, col3, 'AMBIENTE',                       ambiente === 'producao' ? 'Produção' : 'Homologação');
-    y += 20;
+    // ── Identificação da NFS-e / DPS ──
+    y = row(doc, y, [
+      { label: 'NÚMERO DA NFS-e',          value: d.numero || '-', w: 1/3 },
+      { label: 'COMPETÊNCIA DA NFS-e',     value: fmtData(d.dCompet), w: 1/3 },
+      { label: 'DATA E HORA DA EMISSÃO',   value: fmtDataHora(d.dhProc), w: 1/3 },
+    ]);
+    y = row(doc, y, [
+      { label: 'NÚMERO DA DPS',            value: d.nDPS || '-', w: 0.25 },
+      { label: 'SÉRIE DA DPS',             value: d.serie || '-', w: 0.25 },
+      { label: 'SITUAÇÃO DA NFS-e',        value: cancelada ? 'Cancelada' : (d.cStat === '100' ? 'NFS-e Gerada' : d.cStat || '-'), w: 0.25 },
+      { label: 'AMBIENTE',                 value: ambiente === 'producao' ? 'Produção' : 'Homologação', w: 0.25 },
+    ]);
 
     // ── Prestador ──
     y = sectionTitle(doc, y, 'PRESTADOR / FORNECEDOR');
-    y += 4;
-    const col2 = LARGURA_UTIL / 2;
-    field(doc, MARGEM,        y, col2, 'CNPJ',                 fmtDoc(d.emitCnpj));
-    field(doc, MARGEM + col2, y, col2, 'TELEFONE',             fmtFone(d.emitFone));
-    y += 22;
-    field(doc, MARGEM,        y, col2, 'NOME / NOME EMPRESARIAL', d.emitNome);
-    field(doc, MARGEM + col2, y, col2, 'MUNICÍPIO / UF',          fmtMun(d.emitMun));
-    y += 22;
-    field(doc, MARGEM,        y, col2, 'ENDEREÇO',             fmtEnd(d.emitLgr, d.emitNro, d.emitBairro));
-    field(doc, MARGEM + col2, y, col2, 'CEP / E-MAIL',         `${fmtCep(d.emitCep)}  ${d.emitEmail || ''}`);
-    y += 26;
+    y = row(doc, y, [
+      { label: 'CNPJ / CPF / NIF',             value: fmtDoc(d.emitCnpj), w: 0.4 },
+      { label: 'INDICADOR MUNICIPAL (INSCRIÇÃO)', value: '-', w: 0.3 },
+      { label: 'TELEFONE',                     value: fmtFone(d.emitFone), w: 0.3 },
+    ]);
+    y = row(doc, y, [
+      { label: 'NOME / NOME EMPRESARIAL', value: d.emitNome, w: 0.65 },
+      { label: 'MUNICÍPIO / SIGLA UF',    value: fmtMun(d.emitMun), w: 0.35 },
+    ]);
+    y = row(doc, y, [
+      { label: 'ENDEREÇO',     value: fmtEnd(d.emitLgr, d.emitNro, d.emitBairro), w: 0.65 },
+      { label: 'CÓDIGO IBGE / CEP', value: `${d.emitMun || '-'} / ${fmtCep(d.emitCep)}`, w: 0.35 },
+    ]);
+    y = row(doc, y, [
+      { label: 'E-MAIL', value: d.emitEmail || '-', w: 0.65 },
+      { label: 'SIMPLES NACIONAL NA DATA DE COMPETÊNCIA', value: 'Optante - Microempresa ou Empresa de Pequeno Porte', w: 0.35 },
+    ]);
+    y = row(doc, y, [
+      { label: 'REGIME DE APURAÇÃO TRIBUTÁRIA PELO SN', value: 'Regime de apuração dos tributos federais e municipal pelo Simples Nacional', w: 1 },
+    ]);
 
     // ── Tomador ──
     y = sectionTitle(doc, y, 'TOMADOR / ADQUIRENTE');
-    y += 4;
-    field(doc, MARGEM,        y, col2, 'CNPJ / CPF',           fmtDoc(d.tomaDoc));
-    field(doc, MARGEM + col2, y, col2, 'MUNICÍPIO / UF',       fmtMun(d.tomaMun));
-    y += 22;
-    field(doc, MARGEM,        y, col2, 'NOME / NOME EMPRESARIAL', d.tomaNome);
-    field(doc, MARGEM + col2, y, col2, 'CEP',                     fmtCep(d.tomaCep));
-    y += 22;
-    field(doc, MARGEM,        y, col2, 'ENDEREÇO',             fmtEnd(d.tomaLgr, d.tomaNro, d.tomaBairro));
-    field(doc, MARGEM + col2, y, col2, 'E-MAIL',               d.tomaEmail || '-');
-    y += 26;
+    y = row(doc, y, [
+      { label: 'CNPJ / CPF / NIF',             value: fmtDoc(d.tomaDoc), w: 0.4 },
+      { label: 'INDICADOR MUNICIPAL (INSCRIÇÃO)', value: '-', w: 0.3 },
+      { label: 'TELEFONE',                     value: '-', w: 0.3 },
+    ]);
+    y = row(doc, y, [
+      { label: 'NOME / NOME EMPRESARIAL', value: d.tomaNome, w: 0.65 },
+      { label: 'MUNICÍPIO / SIGLA UF',    value: fmtMun(d.tomaMun), w: 0.35 },
+    ]);
+    y = row(doc, y, [
+      { label: 'ENDEREÇO',          value: fmtEnd(d.tomaLgr, d.tomaNro, d.tomaBairro), w: 0.65 },
+      { label: 'CÓDIGO IBGE / CEP', value: `${d.tomaMun || '-'} / ${fmtCep(d.tomaCep)}`, w: 0.35 },
+    ]);
+    y = row(doc, y, [
+      { label: 'E-MAIL', value: d.tomaEmail || '-', w: 1 },
+    ]);
+    y = staticLine(doc, y, 'DESTINATÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e');
+    y = staticLine(doc, y, 'INTERMEDIÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e');
 
     // ── Serviço prestado ──
     y = sectionTitle(doc, y, 'SERVIÇO PRESTADO');
-    y += 4;
-    field(doc, MARGEM,            y, col3, 'CÓD. TRIBUTAÇÃO NACIONAL/MUNICIPAL', `${fmtCTrib(d.cTribNac)} / ${d.cTribMun || '-'}`);
-    field(doc, MARGEM + col3,     y, col3, 'CÓDIGO NBS',                          d.cNBS || '-');
-    field(doc, MARGEM + col3 * 2, y, col3, 'LOCAL DA PRESTAÇÃO',                  fmtMun(d.cLocPrestacao));
-    y += 22;
-    doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#555').text((d.xTribMun || d.xTribNac || '').toUpperCase(), MARGEM, y, { width: LARGURA_UTIL });
-    y += 10;
-    doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#555').text('DESCRIÇÃO DO SERVIÇO', MARGEM, y);
-    y += 9;
-    const descHeight = doc.font('Helvetica').fontSize(8.5).fillColor('#000').heightOfString(d.xDescServ || '-', { width: LARGURA_UTIL });
-    doc.text(d.xDescServ || '-', MARGEM, y, { width: LARGURA_UTIL });
-    y += descHeight + 10;
+    y = row(doc, y, [
+      { label: 'CÓDIGO DE TRIBUTAÇÃO NACIONAL/MUNICIPAL', value: `${fmtCTrib(d.cTribNac)} / ${d.cTribMun || '-'}`, w: 0.34 },
+      { label: 'CÓDIGO DA NBS',                            value: d.cNBS || '-', w: 0.33 },
+      { label: 'LOCAL DA PRESTAÇÃO / SIGLA UF / PAÍS',      value: fmtMun(d.cLocPrestacao), w: 0.33 },
+    ]);
+    y = row(doc, y, [
+      { label: '', value: d.xTribMun || d.xTribNac || '-', w: 1 },
+    ]);
+    y = row(doc, y, [
+      { label: 'DESCRIÇÃO DO SERVIÇO', value: d.xDescServ || '-', w: 1 },
+    ]);
 
     // ── Tributação municipal (ISSQN) ──
-    y = sectionTitle(doc, y, 'TRIBUTAÇÃO MUNICIPAL (ISSQN)');
-    y += 4;
     const retido = d.tpRetISSQN === '2';
-    field(doc, MARGEM,            y, col3, 'TIPO DE TRIBUTAÇÃO',  d.tribISSQN === '1' ? 'Operação Tributável' : '-');
-    field(doc, MARGEM + col3,     y, col3, 'RETENÇÃO DO ISSQN',   retido ? 'Retido' : 'Não Retido');
-    field(doc, MARGEM + col3 * 2, y, col3, 'ALÍQUOTA APLICADA',   retido && d.pAliq ? `${d.pAliq}%` : '-');
-    y += 26;
+    y = sectionTitle(doc, y, 'TRIBUTAÇÃO MUNICIPAL (ISSQN)');
+    y = row(doc, y, [
+      { label: 'TIPO DE TRIBUTAÇÃO DO ISSQN',                 value: d.tribISSQN === '1' ? 'Operação Tributável' : '-', w: 0.5 },
+      { label: 'MUNICÍPIO / SIGLA UF / PAÍS DE INCIDÊNCIA',   value: fmtMun(d.cLocIncid), w: 0.5 },
+    ]);
+    y = row(doc, y, [
+      { label: 'BC ISSQN',           value: '-', w: 0.25 },
+      { label: 'ALÍQUOTA APLICADA',  value: retido && d.pAliq ? `${d.pAliq}%` : '-', w: 0.25 },
+      { label: 'RETENÇÃO DO ISSQN',  value: retido ? 'Retido' : 'Não Retido', w: 0.25 },
+      { label: 'ISSQN APURADO',      value: '-', w: 0.25 },
+    ]);
 
-    // ── Tributação federal / IBS-CBS (reforma ainda não ativa — tudo "-") ──
-    y = sectionTitle(doc, y, 'TRIBUTAÇÃO FEDERAL (EXCETO CBS) E IBS/CBS');
-    y += 4;
-    doc.font('Helvetica').fontSize(7.5).fillColor('#777').text(
-      'IRRF: -    Contrib. Previdenciária Retida: -    PIS: -    COFINS: -    CST/cClassTrib: -    IBS/CBS: R$ 0,00 (reforma tributária ainda não vigente)',
-      MARGEM, y, { width: LARGURA_UTIL }
-    );
-    doc.fillColor('#000');
-    y += 22;
+    // ── Tributação federal (exceto CBS) — Simples Nacional, sem retenção federal ──
+    y = sectionTitle(doc, y, 'TRIBUTAÇÃO FEDERAL (EXCETO CBS)');
+    y = row(doc, y, [
+      { label: 'IRRF',                             value: '-', w: 0.34 },
+      { label: 'CONTRIBUIÇÃO PREVIDENCIÁRIA - RETIDA', value: '-', w: 0.33 },
+      { label: 'CONTRIBUIÇÕES SOCIAIS - RETIDAS',   value: '-', w: 0.33 },
+    ]);
+    y = row(doc, y, [
+      { label: 'PIS - DÉBITO APURAÇÃO PRÓPRIA',    value: '-', w: 0.34 },
+      { label: 'COFINS - DÉBITO APURAÇÃO PRÓPRIA', value: '-', w: 0.33 },
+      { label: 'DESCRIÇÃO CONTRIB. SOCIAIS - RETIDAS', value: '-', w: 0.33 },
+    ]);
+
+    // ── Tributação IBS/CBS — reforma tributária ainda não vigente ──
+    y = sectionTitle(doc, y, 'TRIBUTAÇÃO IBS/CBS');
+    y = row(doc, y, [
+      { label: 'CST / cClassTrib', value: '-', w: 0.5 },
+      { label: 'INDICADOR DE OPERAÇÃO / CÓDIGO IBGE INCIDÊNCIA / MUNICÍPIO INCIDÊNCIA / UF', value: '-', w: 0.5 },
+    ]);
+    y = row(doc, y, [
+      { label: 'EXCLUSÕES E REDUÇÕES DA BASE DE CÁLCULO', value: fmtBRL(0), w: 0.34 },
+      { label: 'BASE DE CÁLCULO APÓS EXCLUSÕES E REDUÇÕES', value: '-', w: 0.33 },
+      { label: 'RED. ALÍQUOTA IBS / RED. ALÍQUOTA CBS', value: '-', w: 0.33 },
+    ]);
+    y = row(doc, y, [
+      { label: 'ALÍQUOTA - IBS UF / IBS MUN',        value: '-', w: 0.34 },
+      { label: 'ALÍQ. EFETIVA MUNICIPAL - IBS',       value: '-', w: 0.33 },
+      { label: 'VALOR APURADO MUNICIPAL - IBS',       value: fmtBRL(0), w: 0.33 },
+    ]);
+    y = row(doc, y, [
+      { label: 'ALÍQ. EFETIVA ESTADUAL - IBS',  value: '-', w: 0.34 },
+      { label: 'VALOR APURADO ESTADUAL - IBS',  value: fmtBRL(0), w: 0.33 },
+      { label: 'VALOR TOTAL APURADO - IBS',     value: fmtBRL(0), w: 0.33 },
+    ]);
+    y = row(doc, y, [
+      { label: 'ALÍQUOTA - CBS',         value: '-', w: 0.34 },
+      { label: 'ALÍQUOTA EFETIVA - CBS', value: '-', w: 0.33 },
+      { label: 'VALOR TOTAL APURADO - CBS', value: fmtBRL(0), w: 0.33 },
+    ]);
 
     // ── Valor total ──
     y = sectionTitle(doc, y, 'VALOR TOTAL DA NFS-e');
-    y += 4;
-    field(doc, MARGEM,            y, col3, 'VALOR DA OPERAÇÃO / SERVIÇO', fmtBRL(d.vServ));
-    field(doc, MARGEM + col3,     y, col3, 'VALOR LÍQUIDO DA NFS-e',      fmtBRL(d.vLiq));
-    field(doc, MARGEM + col3 * 2, y, col3, 'TOTAL DO IBS/CBS',            fmtBRL(0));
-    y += 28;
+    y = row(doc, y, [
+      { label: 'VALOR DA OPERAÇÃO / SERVIÇO', value: fmtBRL(d.vServ), w: 0.34 },
+      { label: 'DESCONTO INCONDICIONADO',     value: '-', w: 0.33 },
+      { label: 'DESCONTO CONDICIONADO',       value: '-', w: 0.33 },
+    ]);
+    y = row(doc, y, [
+      { label: 'TOTAL DAS RETENÇÕES (ISSQN / FEDERAIS)', value: retido ? fmtBRL(d.pAliq ? parseFloat(d.vServ || 0) * parseFloat(d.pAliq) / 100 : 0) : '-', w: 0.34 },
+      { label: 'VALOR LÍQUIDO DA NFS-e', value: fmtBRL(d.vLiq), w: 0.33 },
+      { label: 'TOTAL DO IBS/CBS',       value: fmtBRL(0), w: 0.33 },
+    ]);
+    y = row(doc, y, [
+      { label: 'VALOR LÍQUIDO DA NFS-e + IBS/CBS', value: fmtBRL(0), w: 1 },
+    ]);
 
     // ── Informações complementares ──
-    doc.font('Helvetica').fontSize(7).fillColor('#777').text(
-      'Totais aproximados dos Tributos cfe. Lei n° 12.741/2012: Federais: -; Estaduais: -; Municipais: -;',
-      MARGEM, y, { width: LARGURA_UTIL }
-    );
-    doc.fillColor('#000');
-    y += 20;
+    y = sectionTitle(doc, y, 'INFORMAÇÕES COMPLEMENTARES');
+    y = staticLine(doc, y, 'Totais aproximados dos Tributos cfe. Lei n° 12.741/2012: Federais: -; Estaduais: -; Municipais: -;');
 
-    // ── Rodapé ──
-    doc.moveTo(MARGEM, y).lineTo(595.28 - MARGEM, y).stroke('#ccc');
-    y += 6;
-    doc.font('Helvetica').fontSize(6.5).fillColor('#999').text(
-      `Gerado em ${new Date().toLocaleString('pt-BR')} — N° NFS-e / Chave: ${d.numero || '-'} / ${chaveAcesso}`,
-      MARGEM, y, { width: LARGURA_UTIL }
-    );
+    // ── Rodapé — chave de acesso completa já está no topo, aqui só o número ──
+    y = row(doc, y, [
+      { label: 'DATA CIENTIFICAÇÃO',         value: '-', w: 0.4 },
+      { label: 'IDENTIFICAÇÃO E ASSINATURA', value: '-', w: 0.4 },
+      { label: 'N° NFS-e',                   value: d.numero || '-', w: 0.2 },
+    ]);
+    y = ensureSpace(doc, y, 10);
+    doc.font('Helvetica').fontSize(5.6).fillColor('#999').text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, MARGEM, y + 2, { width: LARGURA_UTIL });
 
     doc.end();
   });
