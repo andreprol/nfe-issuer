@@ -1398,10 +1398,10 @@
       <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--texto-muted);margin-bottom:8px;letter-spacing:.5px">Ambiente</div>
       <div style="display:flex;gap:20px;align-items:center;margin-bottom:16px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px">
-          <input type="radio" name="nfse-amb" value="homologacao" checked> Homologação (teste)
+          <input type="radio" name="nfse-amb" value="homologacao"> Homologação (teste)
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px">
-          <input type="radio" name="nfse-amb" value="producao"> Produção
+          <input type="radio" name="nfse-amb" value="producao" checked> Produção
         </label>
       </div>
 
@@ -4345,7 +4345,7 @@ function abrirModalNfse() {
   document.getElementById('nfse-item-lista').value = '16.01';
   document.getElementById('nfse-iss-retido').value = '2';
   document.getElementById('nfse-natureza').value = '1';
-  document.querySelectorAll('input[name="nfse-amb"]')[0].checked = true;
+  document.querySelector('input[name="nfse-amb"][value="producao"]').checked = true;
   const statusEl = document.getElementById('nfse-emit-status');
   statusEl.style.display = 'none'; statusEl.innerHTML = '';
   document.getElementById('btn-emitir-nfse').disabled = false;
@@ -4609,7 +4609,37 @@ function baixarPdfNfse(chaveAcesso, ambiente) {
 // Carregar NFS-e ao inicializar
 document.addEventListener('DOMContentLoaded', () => {
   renderizarNfseEmitidas(_getNfseEmitidas());
+  backfillNumerosNfse();
 });
+
+// Notas autorizadas sem número salvo (emitidas antes da extração de nNFSe
+// via consulta, ou se o XML veio sem decodificar na hora) — busca uma vez
+// em segundo plano e completa, sem travar o render inicial.
+async function backfillNumerosNfse() {
+  const lista = _getNfseEmitidas();
+  const semNumero = lista.filter(n => n.status === 'autorizado' && n.chaveAcesso && !n.numero);
+  if (!semNumero.length) return;
+
+  let atualizado = false;
+  for (const nota of semNumero) {
+    try {
+      const ambParam = encodeURIComponent(nota.ambiente === 'producao' ? 'producao' : 'homologacao');
+      const resp = await fetch(`/nfse/consultar?chaveAcesso=${encodeURIComponent(nota.chaveAcesso)}&ambiente=${ambParam}`);
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data?.ok && data.numero) { nota.numero = data.numero; atualizado = true; }
+    } catch (_) {}
+  }
+
+  if (atualizado) {
+    const listaAtual = _getNfseEmitidas();
+    const numerosPorChave = {};
+    lista.forEach(n => { if (n.numero) numerosPorChave[n.chaveAcesso] = n.numero; });
+    const listaFinal = listaAtual.map(n => numerosPorChave[n.chaveAcesso] ? { ...n, numero: numerosPorChave[n.chaveAcesso] } : n);
+    _salvarNfseEmitidas(listaFinal);
+    renderizarNfseEmitidas(listaFinal);
+  }
+}
 
 // ── CRUD Usuários ──
 function renderizarUsuarios() {
