@@ -449,6 +449,11 @@ if (!fileUrl) { res.writeHead(400); res.end('url obrigatória'); return; }
     return nfseNacional.handleBaixarXml(req, res, parsed);
   }
 
+  // ── NFSe Nacional: /nfse/pdf?chaveAcesso=...&ambiente=... (DANFSe próprio) ──
+  if (req.method === 'GET' && pathname === '/nfse/pdf') {
+    return nfseNacional.handleBaixarPdf(req, res, parsed);
+  }
+
   // ── Ping Focus NFe ──
   if (pathname === '/focus/ping') {
     res.writeHead(200, { 'Content-Type': 'application/json' });

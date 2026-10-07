@@ -4579,6 +4579,7 @@ function renderizarNfseEmitidas(lista) {
       : `<span style="padding:2px 8px;border-radius:12px;font-size:11px;background:#fff3cd;color:#856404">Homolog.</span>`;
     const disc = (n.discriminacao || '').slice(0, 40) + ((n.discriminacao || '').length > 40 ? '…' : '');
     const acoes = `
+      ${n.chaveAcesso ? `<button class="btn btn-secundario" style="padding:4px 10px;font-size:12px" onclick="baixarPdfNfse('${n.chaveAcesso}','${n.ambiente}')">📄 PDF</button>` : ''}
       ${n.chaveAcesso ? `<button class="btn btn-secundario" style="padding:4px 10px;font-size:12px" onclick="baixarXmlNfse('${n.chaveAcesso}','${n.ambiente}')">📎 XML</button>` : ''}
       ${n.status === 'autorizado' && n.chaveAcesso ? `<button class="btn btn-perigo" style="padding:4px 10px;font-size:12px" onclick="cancelarNfse('${n.chaveAcesso}','${n.ambiente}')">✕ Cancelar</button>` : ''}
     `;
@@ -4597,6 +4598,11 @@ function renderizarNfseEmitidas(lista) {
 
 function baixarXmlNfse(chaveAcesso, ambiente) {
   const url = `/nfse/xml?chaveAcesso=${encodeURIComponent(chaveAcesso)}&ambiente=${encodeURIComponent(ambiente)}`;
+  window.open(url, '_blank');
+}
+
+function baixarPdfNfse(chaveAcesso, ambiente) {
+  const url = `/nfse/pdf?chaveAcesso=${encodeURIComponent(chaveAcesso)}&ambiente=${encodeURIComponent(ambiente)}`;
   window.open(url, '_blank');
 }
 

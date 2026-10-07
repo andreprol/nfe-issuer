@@ -15,6 +15,8 @@
   "type": "commonjs",
   "dependencies": {
     "node-forge": "^1.4.0",
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4",
     "xml-crypto": "^6.1.2"
   }
 }

@@ -15,7 +15,8 @@ const fs    = require('fs');
 const path  = require('path');
 const zlib  = require('zlib');
 const forge = require('node-forge');
-const { SignedXml } = require('xml-crypto');
+const { SignedXml }    = require('xml-crypto');
+const { gerarDanfsePdf } = require('./danfse.cjs');
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -439,6 +440,23 @@ async function handleEmitir(req, res) {
   }
 }
 
+// Consulta compartilhada por handleConsultar, handleBaixarXml e handleBaixarPdf
+// — mesmo host/path (SEFIN, não ADN — ver comentário nas constantes acima).
+async function consultarSefin(chaveAcesso, ambiente) {
+  const cert = certLoader();
+  if (!cert) return { erro: 'Certificado digital não configurado.' };
+
+  const sefinHost = ambiente === 'producao' ? SEFIN_PROD_HOST : SEFIN_HOM_HOST;
+  const { status, body } = await mtlsRequest({
+    host:       sefinHost,
+    reqPath:    `${SEFIN_PATH}/${encodeURIComponent(chaveAcesso)}`,
+    method:     'GET',
+    pfxBuffer:  cert.pfxBuffer,
+    passphrase: cert.passphrase,
+  });
+  return { status, body };
+}
+
 // ── T9: handleConsultar ──────────────────────────────────────────────────────
 
 async function handleConsultar(req, res, parsed) {
@@ -449,21 +467,10 @@ async function handleConsultar(req, res, parsed) {
 
     if (!chaveAcesso) return respJson(res, 400, { ok: false, erro: 'Parâmetro "chaveAcesso" obrigatório.' });
 
-    const cert = certLoader();
-    if (!cert) return respJson(res, 400, { ok: false, erro: 'Certificado digital não configurado.' });
-
-    const sefinHost = ambiente === 'producao' ? SEFIN_PROD_HOST : SEFIN_HOM_HOST;
-    const reqPath   = `${SEFIN_PATH}/${encodeURIComponent(chaveAcesso)}`;
-
     console.log(`[NFSe Nacional consultar] ${chaveAcesso.slice(0, 12)}... em ${ambiente}`);
 
-    const { status, body } = await mtlsRequest({
-      host:       sefinHost,
-      reqPath,
-      method:     'GET',
-      pfxBuffer:  cert.pfxBuffer,
-      passphrase: cert.passphrase,
-    });
+    const { status, body, erro } = await consultarSefin(chaveAcesso, ambiente);
+    if (erro) return respJson(res, 400, { ok: false, erro });
 
     console.log(`[NFSe Nacional consultar] HTTP ${status}`);
 
@@ -553,17 +560,8 @@ async function handleBaixarXml(req, res, parsed) {
 
     if (!chaveAcesso) { res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Parâmetro "chaveAcesso" obrigatório.'); }
 
-    const cert = certLoader();
-    if (!cert) { res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Certificado digital não configurado.'); }
-
-    const sefinHost = ambiente === 'producao' ? SEFIN_PROD_HOST : SEFIN_HOM_HOST;
-    const { status, body } = await mtlsRequest({
-      host:       sefinHost,
-      reqPath:    `${SEFIN_PATH}/${encodeURIComponent(chaveAcesso)}`,
-      method:     'GET',
-      pfxBuffer:  cert.pfxBuffer,
-      passphrase: cert.passphrase,
-    });
+    const { status, body, erro } = await consultarSefin(chaveAcesso, ambiente);
+    if (erro) { res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end(erro); }
 
     if (status !== 200 || !body?.nfseXmlGZipB64) {
       res.writeHead(status === 404 ? 404 : 502, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -585,6 +583,42 @@ async function handleBaixarXml(req, res, parsed) {
   }
 }
 
+// ── handleBaixarPdf: GET /nfse/pdf?chaveAcesso=...&ambiente=... ────────────────
+// DANFSe próprio — gov não expõe endpoint de PDF. Ver danfse.cjs.
+
+async function handleBaixarPdf(req, res, parsed) {
+  try {
+    const qs          = new URLSearchParams(parsed?.query || '');
+    const chaveAcesso = qs.get('chaveAcesso');
+    const ambiente    = (qs.get('ambiente') || 'homologacao').toLowerCase().includes('produ') ? 'producao' : 'homologacao';
+
+    if (!chaveAcesso) { res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Parâmetro "chaveAcesso" obrigatório.'); }
+
+    const { status, body, erro } = await consultarSefin(chaveAcesso, ambiente);
+    if (erro) { res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end(erro); }
+
+    if (status !== 200 || !body?.nfseXmlGZipB64) {
+      res.writeHead(status === 404 ? 404 : 502, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end(status === 404 ? 'NFS-e não encontrada.' : `Consulta retornou ${status}: ${extrairErro(body)}`);
+    }
+
+    const xml = zlib.gunzipSync(Buffer.from(body.nfseXmlGZipB64, 'base64')).toString('utf8');
+    const pdf = await gerarDanfsePdf({ xml, chaveAcesso, ambiente });
+
+    res.writeHead(200, {
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': `inline; filename="DANFSe_${chaveAcesso}.pdf"`,
+      'Content-Length':      pdf.length,
+    });
+    res.end(pdf);
+
+  } catch (err) {
+    console.error('[NFSe Nacional handleBaixarPdf]', err.message);
+    res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Erro ao gerar DANFSe: ' + err.message);
+  }
+}
+
 // ── Helpers internos ─────────────────────────────────────────────────────────
 
 function extrairErro(body) {
@@ -599,4 +633,4 @@ function extrairErro(body) {
 
 // ── Exports ──────────────────────────────────────────────────────────────────
 
-module.exports = { handleEmitir, handleConsultar, handleCancelar, handleBaixarXml };
+module.exports = { handleEmitir, handleConsultar, handleCancelar, handleBaixarXml, handleBaixarPdf };
