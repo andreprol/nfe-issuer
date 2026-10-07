@@ -261,7 +261,7 @@
     /* ===== CARDS MÉTRICAS ===== */
     .metricas {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 20px;
       margin-bottom: 28px;
     }
@@ -291,6 +291,7 @@
     .icone-verde { background: rgba(25,135,84,0.1); }
     .icone-laranja { background: rgba(255,152,0,0.12); }
     .icone-roxo { background: rgba(111,66,193,0.1); }
+    .icone-ciano { background: rgba(13,202,240,0.12); }
 
     .card-metrica .dados { flex: 1; }
     .card-metrica .valor { font-size: 26px; font-weight: 800; color: var(--texto); line-height: 1.1; }
@@ -863,6 +864,14 @@
           <div class="valor" id="dash-vendas">—</div>
           <div class="label">Vendas no Mês</div>
           <div class="variacao" id="dash-vendas-var">—</div>
+        </div>
+      </div>
+      <div class="card-metrica">
+        <div class="icone-metrica icone-ciano">🧰</div>
+        <div class="dados">
+          <div class="valor" id="dash-servicos">—</div>
+          <div class="label">Serviços no Mês</div>
+          <div class="variacao" id="dash-servicos-var">—</div>
         </div>
       </div>
       <div class="card-metrica">
@@ -5689,6 +5698,17 @@ function atualizarDashboard() {
     if (el) el.textContent = fmtBRL(totalMes);
     const varEl = document.getElementById('dash-vendas-var');
     if (varEl) varEl.textContent = `${doMes.length} NF-e no mês`;
+  } catch(e) {}
+
+  // Serviços no mês (NFS-e autorizadas em produção no mês corrente)
+  try {
+    const nfse     = JSON.parse(localStorage.getItem('techstore-nfse-emitidas') || '[]');
+    const doMes    = nfse.filter(n => isValNfse(n) && dataNfse(n) === anoMes);
+    const totalMes = doMes.reduce((s, n) => s + parseFloat(n.valor || 0), 0);
+    const el = document.getElementById('dash-servicos');
+    if (el) el.textContent = fmtBRL(totalMes);
+    const varEl = document.getElementById('dash-servicos-var');
+    if (varEl) varEl.textContent = `${doMes.length} NFS-e no mês`;
   } catch(e) {}
 
   // Notas emitidas no mês (NF-e + NFS-e — produção, não canceladas)
