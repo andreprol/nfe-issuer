@@ -41,15 +41,26 @@ const NS_NFSE = 'http://www.sped.fazenda.gov.br/nfse';
 // Sem ele o SEFIN não sabe qual subitem aplicar e rejeita com E0312 mesmo com o cTribNac
 // correto — foi o que aconteceu aqui: 140101 e depois 010701 falharam com E0312 até
 // descobrirmos (lendo a planilha oficial) que faltava esse campo, não o código em si.
+//
+// 9511800/9512600 usam 010701 (item 1.07 "Suporte técnico em informática"), não 140101
+// (item 14.01 "Manutenção de computadores") — confirmado em 07/10/2026 contra 3 NFS-e reais
+// (DVC Comércio e Serviços, CNPJ 02.947.559/0001-59, CNAE secundário 9511800 idêntico) de
+// reparo de impressora emitidas e aceitas no RJ, todas sob 01.07.01/001. 140101/051 também
+// é administrado pelo RJ (passou em homologação), mas não é a classificação que prestadores
+// reais desse mesmo CNAE usam na prática.
 const CNAE_PARA_CTN = {
+  // cNBS de 9511800/9512600/6209100 confirmado contra buscadorncm.com.br/nbs/115013000
+  // ("Serviços de suporte em tecnologia da informação"). Os demais cNBS abaixo são os
+  // originais de 06/07, nunca validados contra uma emissão real — só o cTribNac/cTribMun
+  // de cada um foi conferido na planilha oficial do RJ.
   '5320202': ['150603', '001', '107020000'], // Coleta e entrega de documentos, bens e valores (15.06.03)
   '5320201': ['150603', '001', '107020000'], // Malote/correspondências → mesmo grupo coleta/entrega (15.06.03)
   '4930202': ['160201', '004', '105011110'], // Transporte municipal de carga (16.02.04)
-  '9511800': ['140101', '051', '120012000'], // Manutenção de computadores (14.01.51)
-  '9512600': ['140101', '051', '120012000'], // Manutenção de equipamentos de comunicação — sem item próprio no RJ, usa o mesmo grupo de manutenção de computadores (14.01.51)
+  '9511800': ['010701', '001', '115013000'], // Manutenção de computadores — item 01 TI (01.07.01), precedente DVC
+  '9512600': ['010701', '001', '115013000'], // Manutenção de equipamentos de comunicação — mesmo grupo (01.07.01)
   '6201500': ['010401', '001', '103091110'], // Elaboração de programa de computadores (01.04.01)
   '6202300': ['010601', '001', '103091190'], // Assessoria ou consultoria em informática (01.06.01)
-  '6209100': ['010701', '001', '102041310'], // Suporte técnico em informática (01.07.01)
+  '6209100': ['010701', '001', '115013000'], // Suporte técnico em informática (01.07.01)
   '7490100': ['170101', '001', '103999900'], // Assessoria ou consultoria de qualquer natureza (17.01.01)
   '8020000': ['110201', '001', '101191090'], // Vigilância, segurança ou monitoramento (11.02.03)
 };

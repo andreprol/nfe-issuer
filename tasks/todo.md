@@ -47,5 +47,21 @@
         essa chave ~30s após autorização — não bloqueia (emissão já volta `autorizado` direto do
         SEFIN, front-end não depende do polling pra essa nota), mas revisitar se o padrão se
         repetir (pode ser atraso de indexação do sandbox restrito, ou path/formato errado).
+      - **Reavaliação 07/10/2026 (mesmo dia)**: André pediu pra conferir contra NFS-e reais de
+        reparo recebidas de fornecedor (DVC Comércio e Serviços, CNPJ 02.947.559/0001-59, CNAE
+        secundário 9511800 — idêntico ao da TechStore). As 3 notas (DVC 9, 10, 11) usam
+        `01.07.01/001`, não `14.01.51`. 140101/051 é administrado pelo RJ (autorizou em
+        homologação) mas não é a classificação real usada por prestadores desse CNAE — trocado
+        de volta pra `010701/001` pra 9511800/9512600. Nessa troca apareceu **E0316** (cNBS
+        `102041310` não existe na tabela NBS — era valor inventado, nunca testado, herdado do
+        06/07). Corrigido pra `115013000` ("Serviços de suporte em TI", confirmado via
+        buscadorncm.com.br/nbs/115013000) — mesmo cNBS aplicado em 6209100 que tinha o mesmo
+        valor inventado. Reteste em homologação: `autorizado`,
+        chaveAcesso `33045572258969414000103000000000000226101912975906`.
+      - ⚠️ cNBS de `150603`/`160201`/`170101`/`110201`/`010401`/`010601` seguem os valores
+        originais de 06/07, **nunca testados contra uma emissão real** — só o cTribNac/cTribMun
+        foi conferido na planilha oficial. Mesmo padrão de erro (cNBS inventado) pode se repetir
+        quando esses CNAEs forem usados pela primeira vez — aí consultar buscadorncm.com.br/nbs/
+        antes de assumir que está certo.
 
 ## ✅ CHECKPOINT FINAL — Aprovação humana antes de produção
