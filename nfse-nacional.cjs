@@ -33,19 +33,25 @@ const ADN_HOM_HOST    = 'adn.producaorestrita.nfse.gov.br';
 
 const NS_NFSE = 'http://www.sped.fazenda.gov.br/nfse';
 
-// [cTribNac 6 dígitos LC116, cNBS 9 dígitos AnexoVIII]
+// [cTribNac 6 dígitos LC116, cTribMun 3 dígitos complementar, cNBS 9 dígitos AnexoVIII]
 // Códigos validados contra planilha oficial RJ (nfsenacional.prefeitura.rio/codtribriov2-0/)
+//
+// cTribMun é OBRIGATÓRIO quando o cTribNac se desdobra em vários serviços municipais
+// (ex.: 140101 cobre 047-059 — balanceamento, cartuchos, computadores, eletrodomésticos...).
+// Sem ele o SEFIN não sabe qual subitem aplicar e rejeita com E0312 mesmo com o cTribNac
+// correto — foi o que aconteceu aqui: 140101 e depois 010701 falharam com E0312 até
+// descobrirmos (lendo a planilha oficial) que faltava esse campo, não o código em si.
 const CNAE_PARA_CTN = {
-  '5320202': ['150603', '107020000'], // Coleta e entrega de documentos, bens e valores (15.06.03)
-  '5320201': ['150603', '107020000'], // Malote/correspondências → mesmo grupo coleta/entrega (15.06.03)
-  '4930202': ['160201', '105011110'], // Transporte rodoviário municipal de carga (16.02.04)
-  '9511800': ['010701', '102041900'], // Manutenção de computadores — item 01 TI (01.07.03)
-  '9512600': ['010701', '102041900'], // Manutenção de equipamentos de comunicação — item 01 TI (01.07.03)
-  '6201500': ['010401', '103091110'], // Elaboração de programa de computadores (01.04.01)
-  '6202300': ['010601', '103091190'], // Assessoria ou consultoria em informática (01.06.01)
-  '6209100': ['010701', '102041310'], // Suporte técnico em informática (01.07.01)
-  '7490100': ['170101', '103999900'], // Assessoria ou consultoria de qualquer natureza (17.01.01)
-  '8020000': ['110201', '101191090'], // Vigilância, segurança ou monitoramento (11.02.03)
+  '5320202': ['150603', '001', '107020000'], // Coleta e entrega de documentos, bens e valores (15.06.03)
+  '5320201': ['150603', '001', '107020000'], // Malote/correspondências → mesmo grupo coleta/entrega (15.06.03)
+  '4930202': ['160201', '004', '105011110'], // Transporte municipal de carga (16.02.04)
+  '9511800': ['140101', '051', '120012000'], // Manutenção de computadores (14.01.51)
+  '9512600': ['140101', '051', '120012000'], // Manutenção de equipamentos de comunicação — sem item próprio no RJ, usa o mesmo grupo de manutenção de computadores (14.01.51)
+  '6201500': ['010401', '001', '103091110'], // Elaboração de programa de computadores (01.04.01)
+  '6202300': ['010601', '001', '103091190'], // Assessoria ou consultoria em informática (01.06.01)
+  '6209100': ['010701', '001', '102041310'], // Suporte técnico em informática (01.07.01)
+  '7490100': ['170101', '001', '103999900'], // Assessoria ou consultoria de qualquer natureza (17.01.01)
+  '8020000': ['110201', '001', '101191090'], // Vigilância, segurança ou monitoramento (11.02.03)
 };
 
 // ── T3: certLoader ────────────────────────────────────────────────────────────
@@ -158,15 +164,18 @@ function montarDPS({ dados, configEmpresa, nDPS, tpAmb }) {
 
   // Serviço
   const cnaeLimpo    = (servico.cnae || '5320202').replace(/\D/g, '');
-  const [cTribNac, cNBS] = CNAE_PARA_CTN[cnaeLimpo] || ['150603', '107020000'];
+  const [cTribNac, cTribMun, cNBS] = CNAE_PARA_CTN[cnaeLimpo] || ['150603', '001', '107020000'];
   const valorServico = parseFloat(servico.valor || 0).toFixed(2);
   const pAliq        = parseFloat(servico.aliquotaIss || servico.aliquota || 5).toFixed(2);
   // Mapeamento invertido: antigo ABRASF issRetido=1(retido) → DPS tpRetISSQN=2; issRetido=2(não retido) → tpRetISSQN=1
   const issRetidoAnt = parseInt(servico.issRetido ?? '2');
   const tpRetISSQN   = issRetidoAnt === 1 ? 2 : 1;
 
-  // Totais tributários informativos (Simples Nacional: federal/estadual = 0, municipal = ISS)
-  const vIss = (parseFloat(valorServico) * parseFloat(pAliq) / 100).toFixed(2);
+  // E0625: SEFIN rejeita <pAliq> quando ISS não é retido pelo tomador (tpRetISSQN=1) pra
+  // prestador Simples Nacional (opSimpNac=3) sem benefício municipal — o ISS dessa empresa
+  // vai embutido na guia do Simples, não é calculado por alíquota na própria nota.
+  // Só informamos pAliq/vIss quando o tomador retém o ISS (tpRetISSQN=2).
+  const vIss = tpRetISSQN === 2 ? (parseFloat(valorServico) * parseFloat(pAliq) / 100).toFixed(2) : '0.00';
 
   // Regime tributário: opSimpNac=3 (outros optantes SN — LTDA), regApTribSN=1 (SN próprio), regEspTrib=0
   const xml =
@@ -196,6 +205,7 @@ function montarDPS({ dados, configEmpresa, nDPS, tpAmb }) {
           `</locPrest>` +
           `<cServ>` +
             `<cTribNac>${cTribNac}</cTribNac>` +
+            `<cTribMun>${cTribMun}</cTribMun>` +
             `<xDescServ>${xmlEsc(servico.discriminacao)}</xDescServ>` +
             `<cNBS>${cNBS}</cNBS>` +
           `</cServ>` +
@@ -208,7 +218,7 @@ function montarDPS({ dados, configEmpresa, nDPS, tpAmb }) {
             `<tribMun>` +
               `<tribISSQN>1</tribISSQN>` +
               `<tpRetISSQN>${tpRetISSQN}</tpRetISSQN>` +
-              `<pAliq>${pAliq}</pAliq>` +
+              (tpRetISSQN === 2 ? `<pAliq>${pAliq}</pAliq>` : '') +
             `</tribMun>` +
             `<totTrib>` +
               `<vTotTrib>` +

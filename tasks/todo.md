@@ -29,7 +29,23 @@
 ## ✅ CHECKPOINT C — Testar UI end-to-end sem produção
 
 ## Fase 5: Testes
-- [ ] T15: Teste completo em homologação (`sefin.producaorestrita.nfse.gov.br`)
-- [ ] T16: Ajustes pós-teste (reserva)
+- [x] T15: Teste completo em homologação (`sefin.producaorestrita.nfse.gov.br`) — 07/10/2026,
+      CNAE 9511800, status `autorizado`, chaveAcesso `33045572258969414000103000000000000126109110733449`
+- [x] T16: Ajustes pós-teste — 2 erros reais encontrados e corrigidos no teste real (não eram
+      o cTribNac, como se suspeitava em 06/07):
+      - **E0312 (persistiu mesmo com 010701)**: faltava `<cTribMun>` na `<cServ>`. RJ exige o
+        código complementar municipal de 3 dígitos pra desambiguar dentro do cTribNac (ex.:
+        140101 cobre 047-059 — "Manutenção de computadores" é especificamente o 051, confirmado
+        na planilha oficial `codtribriov2-0`). cTribNac original (140101) estava certo desde o
+        início; a correção pra 010701 em 06/07 foi um desvio. `CNAE_PARA_CTN` agora guarda
+        `[cTribNac, cTribMun, cNBS]` pros 10 CNAEs mapeados.
+      - **E0625**: SEFIN rejeita `<pAliq>` quando ISS não é retido pelo tomador (tpRetISSQN=1)
+        pra prestador Simples Nacional sem benefício municipal — o ISS dessa empresa vai
+        embutido no DAS, não é calculado por alíquota na nota. `pAliq`/`vTotTribMun` agora só
+        são enviados quando `tpRetISSQN === 2` (tomador retém).
+      - ⚠️ Pendente verificar depois: `/nfse/consultar` (ADN) devolveu 404 "não encontrada" pra
+        essa chave ~30s após autorização — não bloqueia (emissão já volta `autorizado` direto do
+        SEFIN, front-end não depende do polling pra essa nota), mas revisitar se o padrão se
+        repetir (pode ser atraso de indexação do sandbox restrito, ou path/formato errado).
 
 ## ✅ CHECKPOINT FINAL — Aprovação humana antes de produção
