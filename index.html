@@ -1558,6 +1558,7 @@
           <div class="form-grupo"><label>Razão Social</label><input type="text" id="cfg-razao-social" value="TechStore Comércio de Informática Ltda"></div>
           <div class="form-grupo"><label>CNPJ</label><input type="text" id="cfg-cnpj" value="00.000.000/0001-00"></div>
           <div class="form-grupo"><label>Inscrição Estadual</label><input type="text" id="cfg-ie" value="000.000.00-0"></div>
+          <div class="form-grupo"><label>Inscrição Municipal ISS <small style="color:#888">(obrigatório para NFS-e Nota Carioca)</small></label><input type="text" id="cfg-inscricao-municipal" placeholder="Ex: 1234567"></div>
           <div class="form-grupo"><label>Regime Tributário</label><select id="cfg-regime"><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option></select></div>
           <div class="form-grupo">
             <label>E-mails da Empresa</label>
@@ -2259,7 +2260,7 @@
     // Atualiza dashboard ao navegar para ele
     if (pagina === 'dashboard') atualizarDashboard();
     if (pagina === 'clientes') atualizarTotaisClientes();
-    if (pagina === 'nfse') abrirAvisoNfse();
+    // Modal de aviso NFSe removido — emissão direta via portal nacional ativa
 
     // Scroll para o topo da área de conteúdo
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3511,7 +3512,7 @@
   })();
 
   const CFG_CAMPOS = [
-    'cfg-razao-social','cfg-cnpj','cfg-ie','cfg-regime',
+    'cfg-razao-social','cfg-cnpj','cfg-ie','cfg-regime','cfg-inscricao-municipal',
     'cfg-nome','cfg-email','cfg-perfil',
     'cfg-nfe-serie-hom','cfg-nfe-proximo-hom','cfg-nfe-serie-prod','cfg-nfe-proximo-prod',
     'cfg-focus-token-hom','cfg-focus-token-prod',
@@ -4365,9 +4366,6 @@ async function emitirNfse() {
 
   const ambVal  = document.querySelector('input[name="nfse-amb"]:checked')?.value || 'homologacao';
   const config  = _getConfig();
-  const tokenKey = ambVal === 'producao' ? 'tokenProducao' : 'tokenHomologacao';
-  const token   = config[tokenKey];
-  if (!token) { _show('⚠️ Token Focus NFe não configurado. Acesse Configurações.', 'erro'); return; }
 
   const tomDoc  = document.getElementById('nfse-tom-doc').value.trim();
   const tomNome = document.getElementById('nfse-tom-nome').value.trim();
@@ -4406,46 +4404,42 @@ async function emitirNfse() {
     infAdicional:  document.getElementById('nfse-info-adicional').value.trim(),
   };
 
-  // Envia apenas os campos necessários (evita mandar certificado e dados grandes)
   const ambConfig = {
     ambiente:           ambVal === 'producao' ? 'Produção' : 'Homologação',
     cnpj:               config.cnpj,
-    inscricaoMunicipal: config.inscricaoMunicipal || '16269891',
+    inscricaoMunicipal: document.getElementById('cfg-inscricao-municipal')?.value?.trim() || '',
   };
 
   try {
-    const resp = await fetch('/focus/nfse/emitir', {
+    const resp = await fetch('/nfse/emitir', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, dados, config: ambConfig }),
+      body: JSON.stringify({ dados, config: ambConfig }),
     });
-    // Lê como texto primeiro para diagnosticar erros de parse
     const rawText = await resp.text();
     let data;
     try { data = JSON.parse(rawText); }
     catch { throw new Error(`Servidor retornou HTTP ${resp.status}: ${rawText.slice(0, 200)}`); }
 
     if (data.ok) {
-      // Salvar nota como "aguardando" imediatamente
       const lista = _getNfseEmitidas();
       lista.unshift({
-        ref:          data.ref,
-        numero:       null,
-        tomador:      tomNome,
-        tomadorDoc:   tomDoc,
+        chaveAcesso:   data.chaveAcesso,
+        numero:        data.numero || null,
+        tomador:       tomNome,
+        tomadorDoc:    tomDoc,
         discriminacao: disc,
         valor,
-        ambiente:     ambVal,
-        status:       'aguardando',
-        emissao:      new Date().toISOString(),
-        pdf_url:      null,
-        xml_url:      null,
+        ambiente:      ambVal,
+        status:        data.status === 'autorizado' ? 'autorizado' : 'aguardando',
+        emissao:       new Date().toISOString(),
+        pdf_url:       null,
+        xml_url:       null,
       });
       _salvarNfseEmitidas(lista);
       renderizarNfseEmitidas(lista);
-      _show('⏳ NFS-e enviada! Aguardando autorização da Prefeitura — a lista será atualizada automaticamente.', 'info');
+      _show('✅ NFS-e enviada ao portal nacional! Aguardando autorização — a lista será atualizada automaticamente.', 'ok');
       btnEl.disabled = false;
-      // Fechar modal e iniciar polling em background
       setTimeout(() => fecharModal('modal-nfse'), 2000);
       setTimeout(() => nfsePollarPendentes(), 8000);
     } else {
@@ -4465,53 +4459,42 @@ async function nfsePollarPendentes() {
   _nfsePollingAtivo = true;
   try {
     const lista   = _getNfseEmitidas();
-    const pending = lista.filter(n => n.status === 'aguardando' && n.ref);
+    const pending = lista.filter(n => n.status === 'aguardando' && n.chaveAcesso);
     if (!pending.length) { _nfsePollingAtivo = false; return; }
 
-    const config = _getConfig();
     let atualizado = false;
 
     for (const nota of pending) {
-      const tokenKey = nota.ambiente === 'producao' ? 'tokenProducao' : 'tokenHomologacao';
-      const token = config[tokenKey];
-      if (!token) continue;
       try {
-        const resp = await fetch(`/focus/nfse/consultar?ref=${encodeURIComponent(nota.ref)}&token=${encodeURIComponent(token)}&ambiente=${encodeURIComponent(nota.ambiente === 'producao' ? 'Produção' : 'Homologação')}`);
+        const ambParam = encodeURIComponent(nota.ambiente === 'producao' ? 'producao' : 'homologacao');
+        const resp = await fetch(`/nfse/consultar?chaveAcesso=${encodeURIComponent(nota.chaveAcesso)}&ambiente=${ambParam}`);
         if (!resp.ok) continue;
         const data = await resp.json();
         if (!data || !data.status) continue;
 
-        if (data.status === 'autorizado') {
+        if (data.ok && data.status === 'autorizado') {
           nota.status  = 'autorizado';
-          nota.numero  = data.numero_nfse || data.numero || null;
-          nota.pdf_url = data.url || data.caminho_pdf_nota_fiscal || null;
-          nota.xml_url = data.caminho_xml_nota_fiscal || null;
-          nota.codigo_verificacao = data.codigo_verificacao || null;
+          nota.numero  = data.numero || null;
+          nota.pdf_url = data.pdf_url || null;
+          nota.xml_url = data.xml_url || null;
           atualizado = true;
-        } else if (['rejeitado', 'erro', 'erro_autorizacao', 'cancelado'].includes(data.status)) {
-          // Remove da lista — nota com erro não tem utilidade
-          nota._remover = true;
+        } else if (['rejeitado', 'cancelado'].includes(data.status)) {
+          nota.status = data.status;
           atualizado = true;
         }
       } catch(_) {}
     }
 
     if (atualizado) {
-      // Relê do localStorage para não sobrescrever notas adicionadas durante o polling
       const listaAtual = _getNfseEmitidas();
-      // Aplica as atualizações do polling sobre a lista mais recente
-      const refsRemover = new Set(lista.filter(n => n._remover).map(n => n.ref));
-      const refsAtualizar = {};
-      lista.filter(n => !n._remover && n.status !== 'aguardando').forEach(n => refsAtualizar[n.ref] = n);
-      const listaFinal = listaAtual
-        .filter(n => !refsRemover.has(n.ref))
-        .map(n => refsAtualizar[n.ref] || n);
+      const chavesAtualizar = {};
+      lista.filter(n => n.status !== 'aguardando').forEach(n => { if (n.chaveAcesso) chavesAtualizar[n.chaveAcesso] = n; });
+      const listaFinal = listaAtual.map(n => (n.chaveAcesso && chavesAtualizar[n.chaveAcesso]) ? chavesAtualizar[n.chaveAcesso] : n);
       _salvarNfseEmitidas(listaFinal);
       renderizarNfseEmitidas(listaFinal);
       atualizarDashboard();
     }
 
-    // Se ainda há pendentes, agenda próximo polling em 10s
     const aindaPendente = lista.some(n => n.status === 'aguardando');
     _nfsePollingAtivo = false;
     if (aindaPendente) setTimeout(nfsePollarPendentes, 10000);
@@ -4526,22 +4509,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (pendentes.length) setTimeout(nfsePollarPendentes, 5000);
 });
 
-async function cancelarNfse(ref, ambiente) {
+async function cancelarNfse(chaveAcesso, ambiente) {
   if (!confirm('Confirma o cancelamento desta NFS-e?')) return;
-  const config   = _getConfig();
-  const tokenKey = ambiente === 'producao' ? 'tokenProducao' : 'tokenHomologacao';
-  const token    = config[tokenKey];
-  if (!token) { alert('Token não configurado.'); return; }
+  const justificativa = prompt('Informe a justificativa do cancelamento (mínimo 15 caracteres):');
+  if (!justificativa || justificativa.trim().length < 15) { alert('Justificativa inválida (mínimo 15 caracteres).'); return; }
 
   try {
-    const resp = await fetch('/focus/nfse/cancelar', {
+    const resp = await fetch('/nfse/cancelar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, ref, config: { ...config, ambiente: ambiente === 'producao' ? 'Produção' : 'Homologação' } }),
+      body: JSON.stringify({ chaveAcesso, justificativa: justificativa.trim(), config: { ambiente: ambiente === 'producao' ? 'Produção' : 'Homologação' } }),
     });
     const data = await resp.json();
     if (data.ok) {
-      const lista = _getNfseEmitidas().map(n => n.ref === ref ? { ...n, status: 'cancelado' } : n);
+      const lista = _getNfseEmitidas().map(n => n.chaveAcesso === chaveAcesso ? { ...n, status: 'cancelado' } : n);
       _salvarNfseEmitidas(lista);
       renderizarNfseEmitidas(lista);
       alert('NFS-e cancelada com sucesso.');
@@ -4604,7 +4585,7 @@ function renderizarNfseEmitidas(lista) {
     const acoes = `
       ${n.pdf_url ? `<button class="btn btn-secundario" style="padding:4px 10px;font-size:12px" onclick="baixarArquivoNfse('${n.pdf_url}','${n.ambiente}')">📄 PDF</button>` : ''}
       ${n.xml_url ? `<button class="btn btn-secundario" style="padding:4px 10px;font-size:12px" onclick="baixarArquivoNfse('${n.xml_url}','${n.ambiente}')">📎 XML</button>` : ''}
-      ${n.status === 'autorizado' ? `<button class="btn btn-perigo" style="padding:4px 10px;font-size:12px" onclick="cancelarNfse('${n.ref}','${n.ambiente}')">✕ Cancelar</button>` : ''}
+      ${n.status === 'autorizado' && n.chaveAcesso ? `<button class="btn btn-perigo" style="padding:4px 10px;font-size:12px" onclick="cancelarNfse('${n.chaveAcesso}','${n.ambiente}')">✕ Cancelar</button>` : ''}
     `;
     return `<tr>
       <td>${n.numero || '—'}</td>
